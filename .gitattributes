@@ -1,0 +1,6 @@
+# Fișierele rulate în containere Linux trebuie să aibă terminații LF
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
