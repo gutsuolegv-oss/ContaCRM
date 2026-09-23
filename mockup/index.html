@@ -378,10 +378,10 @@ const FSTAT = {
 const NOTIFS = [
   { t: 'Termen raport R1 — 25 septembrie', s: '6 clienți plătitori TVA au R1 nedepus pentru august', when: 'acum 10 min', ch: ['app', 'email', 'tg'], type: 'warn', unread: true },
   { t: 'Date odometru primite pe Telegram', s: 'Eco Fructe SRL · CRL 422 — de generat foaia de parcurs pentru septembrie', when: 'acum 40 min', ch: ['app'], type: 'info', unread: true },
-  { t: 'Restanță nouă detectată din 1C', s: 'Moldagro Export SA — 24 800 MDL, 45 zile', when: 'acum 1 oră', ch: ['app', 'tg'], type: 'bad', unread: true },
+  { t: 'Restanță nouă detectată din 1C', s: 'Moldagro Export SA — 24 800 MDL, 45 zile', when: 'acum 1 oră', ch: ['app', 'tg'], type: 'bad', unread: true, admin: true },
   { t: 'Kilometraj lipsă pentru august', s: '2 automobile fără date la odometru — notificare Telegram retrimisă clienților', when: '03.09, 10:00', ch: ['app', 'tg'], type: 'bad', unread: false },
   { t: 'Client nou în onboarding', s: 'Print Studio SRL — așteaptă repartizare pe contabil', when: 'ieri, 17:40', ch: ['app', 'email'], type: 'info', unread: false },
-  { t: 'Sincronizare 1C finalizată', s: '142 clienți actualizați, 3 restanțe noi', when: 'ieri, 06:00', ch: ['app'], type: 'ok', unread: false },
+  { t: 'Sincronizare 1C finalizată', s: '142 clienți actualizați, 3 restanțe noi', when: 'ieri, 06:00', ch: ['app'], type: 'ok', unread: false, admin: true },
   { t: 'Raport R4 depus', s: 'Dental Art SRL — depus de Ion Ceban', when: 'ieri, 12:15', ch: ['app'], type: 'ok', unread: false },
 ];
 
@@ -412,6 +412,8 @@ const km = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 const badge = (s, map) => `<span class="badge ${map[s].cls}">${map[s].label}</span>`;
 const vatBadge = c => c.vat ? '<span class="badge plain b-pri">Plătitor TVA</span>' : '<span class="badge plain b-grey">Non-TVA</span>';
 const visibleClients = () => state.role === 'contabil' ? CLIENTS.filter(c => c.acc === state.meId) : CLIENTS;
+const isAdmin = () => state.role === 'admin';
+const visibleNotifs = () => NOTIFS.filter(n => !n.admin || isAdmin());
 const visibleVehicles = () => VEHICLES.filter(v => visibleClients().some(c => c.id === v.client));
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -424,7 +426,7 @@ const NAV = [
   { href: '#/', label: 'Panou', icon: 'home' },
   { href: '#/clienti', label: 'Clienți', icon: 'clients' },
   { href: '#/rapoarte', label: 'Rapoarte', icon: 'reports', count: () => visibleClients().reduce((n, c) => n + reportsFor(c).filter(r => repStatus(c, r) === 'restant').length, 0) },
-  { href: '#/notificari', label: 'Notificări', icon: 'bell', count: () => NOTIFS.filter(n => n.unread).length },
+  { href: '#/notificari', label: 'Notificări', icon: 'bell', count: () => visibleNotifs().filter(n => n.unread).length },
   { group: 'Administrare', admin: true },
   { href: '#/echipa', label: 'Distribuție clienți', icon: 'team', admin: true },
   { href: '#/sync', label: 'Sync 1C', icon: 'sync', admin: true },
@@ -469,7 +471,8 @@ function pageDashboard() {
   <div class="grid g4" style="margin-bottom:16px">
     ${kpi(state.role === 'admin' ? 'Clienți activi' : 'Clienții mei', cl.filter(c => c.status === 'activ').length, `${cl.filter(c => c.vat).length} plătitori TVA · ${cl.filter(c => !c.vat).length} non-TVA`, 'clients', 'primary')}
     ${kpi('Rapoarte de depus', pending.length, `${late.length} restante · termen în 2 zile`, 'reports', 'warn')}
-    ${kpi('Restanțe 1C', mdl(debts.reduce((s, c) => s + c.debt, 0)), `${debts.length} clienți cu datorii`, 'coin', 'bad')}
+    ${isAdmin() ? kpi('Restanțe 1C', mdl(debts.reduce((s, c) => s + c.debt, 0)), `${debts.length} clienți cu datorii`, 'coin', 'bad')
+      : kpi('Foi de parcurs de generat', ['sep', 'aug'].reduce((n, m) => n + vs.filter(v => reading(v, m).status === 'primit').length, 0), 'date odometru primite de la clienți', 'reports', 'ok')}
     ${kpi('Kilometraj de primit', kmMissing, `${vs.length} automobile · termen 30.09${kmLate ? ` · ${kmLate} lipsă din august` : ''}`, 'truck', 'info', 'data-kmgo="1" style="cursor:pointer"')}
   </div>
   <div class="grid g-main">
@@ -501,7 +504,7 @@ function pageDashboard() {
       ${state.role === 'admin' ? `<div class="card"><div class="card-h"><h3>Încărcare contabili</h3><a href="#/echipa" class="btn sm ghost">Gestionează</a></div><div class="card-b">${workload}
         <div class="callout" style="margin-top:4px">${ic('info')}<div style="font-size:13px"><b>${CLIENTS.filter(c => !c.acc).length} clienți</b> așteaptă repartizare. <a href="#/echipa">Repartizează →</a></div></div></div></div>` : ''}
       <div class="card"><div class="card-h"><h3>Activitate recentă</h3></div><div class="card-b"><div class="timeline">
-        ${NOTIFS.slice(0, 5).map(n => `<div class="tl"><div>${n.t}</div><div class="s">${n.when}</div></div>`).join('')}
+        ${visibleNotifs().slice(0, 5).map(n => `<div class="tl"><div>${n.t}</div><div class="s">${n.when}</div></div>`).join('')}
       </div></div></div>
     </div>
   </div>`;
@@ -522,10 +525,10 @@ function pageClients() {
   <div class="card">
     <div class="toolbar">
       <input class="input" id="cq" placeholder="Caută după nume sau IDNO" value="${state.clientQuery}" style="min-width:240px">
-      <div class="seg">${seg('all', 'Toți')}${seg('vat', 'Plătitori TVA')}${seg('novat', 'Non-TVA')}${seg('debt', 'Cu restanțe')}${seg('km', 'Kilometraj de primit')}</div>
+      <div class="seg">${seg('all', 'Toți')}${seg('vat', 'Plătitori TVA')}${seg('novat', 'Non-TVA')}${isAdmin() ? seg('debt', 'Cu restanțe') : ''}${seg('km', 'Kilometraj de primit')}</div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Denumire</th><th>IDNO</th><th>Regim</th><th>Rapoarte</th><th>Contabil</th><th>Parc auto</th><th class="num">Restanță 1C</th><th>Status</th></tr></thead>
+      <thead><tr><th>Denumire</th><th>IDNO</th><th>Regim</th><th>Rapoarte</th><th>Contabil</th><th>Parc auto</th>${isAdmin() ? '<th class="num">Restanță 1C</th>' : ''}<th>Status</th></tr></thead>
       <tbody>${cl.map(c => `
         <tr class="link" data-go="#/client/${c.id}">
           <td class="strong">${c.name}</td>
@@ -534,9 +537,9 @@ function pageClients() {
           <td>${reportsFor(c).map(r => `<span class="chip-r ${RSTAT[repStatus(c, r)].cls}" title="${RSTAT[repStatus(c, r)].label}" style="margin-right:4px">${r}</span>`).join('')}</td>
           <td>${who(acc(c.acc))}</td>
           <td style="white-space:nowrap">${(k => !k.cars ? '<span class="muted">—</span>' : `${ic('truck', 15)} ${k.cars}${k.late ? ` <span class="badge b-bad">${k.late} lipsă</span>` : k.waiting ? ` <span class="badge b-grey">${k.waiting} de primit</span>` : ''}`)(kmState(c))}</td>
-          <td class="num ${c.debt ? '' : 'muted'}" style="${c.debt ? 'color:var(--bad);font-weight:600' : ''}">${c.debt ? mdl(c.debt) : '—'}</td>
+          ${isAdmin() ? `<td class="num ${c.debt ? '' : 'muted'}" style="${c.debt ? 'color:var(--bad);font-weight:600' : ''}">${c.debt ? mdl(c.debt) : '—'}</td>` : ''}
           <td>${c.status === 'activ' ? '<span class="badge b-ok">Activ</span>' : '<span class="badge b-info">Onboarding</span>'}</td>
-        </tr>`).join('') || `<tr><td colspan="8" class="muted" style="text-align:center;padding:40px">Niciun client găsit</td></tr>`}
+        </tr>`).join('') || `<tr><td colspan="9" class="muted" style="text-align:center;padding:40px">Niciun client găsit</td></tr>`}
       </tbody></table></div>
   </div>`;
 }
@@ -580,7 +583,7 @@ function pageClient(id) {
       ${['August 2026', 'Iulie 2026', 'Iunie 2026', 'Mai 2026'].map((p, i) => `<tr><td class="strong">${p}</td>${reportsFor(c).map(r => `<td>${badge(repStatus(c, r, i), RSTAT)}</td>`).join('')}<td class="muted">25.${String(9 - i).padStart(2, '0')}.2026</td></tr>`).join('')}
     </tbody></table></div>`;
   if (state.clientTab === 'history') body = `<div class="timeline">
-      <div class="tl"><div>Sync 1C: ${c.debt ? `restanță ${mdl(c.debt)} detectată` : 'fără restanțe'}</div><div class="s">azi, 06:00 · sistem</div></div>
+      ${isAdmin() ? `<div class="tl"><div>Sync 1C: ${c.debt ? `restanță ${mdl(c.debt)} detectată` : 'fără restanțe'}</div><div class="s">azi, 06:00 · sistem</div></div>` : ''}
       ${VEHICLES.some(v => v.client === c.id) ? `<div class="tl"><div>Foaie de parcurs pentru august generată</div><div class="s">1 sep 2026 · ${a?.name ?? '—'}</div></div>` : ''}
       <div class="tl"><div>${reportsFor(c)[0]} pentru iulie depus</div><div class="s">24 aug 2026 · ${a?.name ?? '—'}</div></div>
       <div class="tl"><div>Notificare Telegram trimisă administratorului</div><div class="s">20 aug 2026 · sistem</div></div>
@@ -598,7 +601,7 @@ function pageClient(id) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${vatBadge(c)} <span class="muted mono">IDNO ${c.idno}</span> <span class="muted">· ${ic('pin', 14)} ${c.city}</span></div></div>
       <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">Contabil responsabil</div>${who(a)}</div>
-        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Restanță 1C</div><div class="strong" style="color:${c.debt ? 'var(--bad)' : 'var(--ok)'}">${c.debt ? mdl(c.debt) : 'Achitat'}</div></div>
+        ${isAdmin() ? `<div><div class="muted" style="font-size:12px;margin-bottom:4px">Restanță 1C</div><div class="strong" style="color:${c.debt ? 'var(--bad)' : 'var(--ok)'}">${c.debt ? mdl(c.debt) : 'Achitat'}</div></div>` : ''}
         <button class="btn" data-tab="auto">${ic('truck')}Parc auto (${kmState(c).cars})</button>
       </div>
     </div>
@@ -742,7 +745,7 @@ function pageTeam() {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:12px">
         <div><div class="strong" style="font-size:18px">${mine.length}</div><div class="muted" style="font-size:11px">clienți</div></div>
         <div><div class="strong" style="font-size:18px">${mine.filter(c => c.vat).length}</div><div class="muted" style="font-size:11px">TVA</div></div>
-        <div><div class="strong" style="font-size:18px;color:${late ? 'var(--bad)' : 'inherit'}">${late}</div><div class="muted" style="font-size:11px">restanțe</div></div>
+        <div><div class="strong" style="font-size:18px;color:${late ? 'var(--bad)' : 'inherit'}">${late}</div><div class="muted" style="font-size:11px">rap. întârziate</div></div>
       </div>
       <div class="bar"><span style="width:${mine.length / 6 * 100}%;background:${a.color}"></span></div>
       <div class="muted" style="font-size:11px;margin-top:6px">Încărcare ${Math.round(mine.length / 6 * 100)}% din capacitate (6)</div>
@@ -759,17 +762,17 @@ function pageTeam() {
   </div>
   <div class="card"><div class="card-h"><h3>Roluri și permisiuni</h3></div>
     <div class="table-wrap"><table><thead><tr><th>Permisiune</th><th>Admin</th><th>Contabil</th></tr></thead><tbody>
-      ${[['Vizualizare clienți', 'Toți', 'Doar clienții proprii'], ['Editare cartelă client', '✓', '✓ (proprii)'], ['Repartizare clienți', '✓', '—'], ['Sincronizare 1C', '✓', '—'], ['Configurare notificări', 'Globale', 'Personale'], ['Onboarding client nou', '✓', '✓ (necesită aprobare)']].map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="muted">${r[2]}</td></tr>`).join('')}
+      ${[['Vizualizare clienți', 'Toți', 'Doar clienții proprii'], ['Editare cartelă client', '✓', '✓ (proprii)'], ['Repartizare clienți', '✓', '—'], ['Sincronizare 1C', '✓', '—'], ['Datorii clienți (restanțe 1C)', '✓', '— complet ascuns'], ['Configurare notificări', 'Globale', 'Personale'], ['Onboarding client nou', '✓', '✓ (necesită aprobare)']].map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="muted">${r[2]}</td></tr>`).join('')}
     </tbody></table></div></div>`;
 }
 
 function pageNotifs() {
   const chIcon = { app: ['bell', 'În aplicație'], email: ['mail', 'Email'], tg: ['send', 'Telegram'] };
-  const events = [['Termen raport se apropie (cu 3 zile înainte)', 1, 1, 1], ['Raport restant', 1, 1, 1], ['Restanță nouă din 1C', 1, 0, 1], ['Date odometru lipsă în ultima zi a lunii (către client)', 1, 0, 1], ['Date odometru primite de la client', 1, 0, 0], ['Client nou repartizat', 1, 1, 0], ['Rezumat zilnic (08:00)', 0, 1, 1]];
+  const events = [['Termen raport se apropie (cu 3 zile înainte)', 1, 1, 1], ['Raport restant', 1, 1, 1], ...(isAdmin() ? [['Restanță nouă din 1C', 1, 0, 1]] : []), ['Date odometru lipsă în ultima zi a lunii (către client)', 1, 0, 1], ['Date odometru primite de la client', 1, 0, 0], ['Client nou repartizat', 1, 1, 0], ['Rezumat zilnic (08:00)', 0, 1, 1]];
   return `
   <div class="page-head"><div><h1>Notificări</h1><p>Email + Telegram + în aplicație</p></div><button class="btn" data-action="readall">${ic('check')}Marchează toate citite</button></div>
   <div class="grid g-main">
-    <div class="card">${NOTIFS.map(n => `<div class="list-item" style="${n.unread ? 'background:var(--primary-soft)' : ''}">
+    <div class="card">${visibleNotifs().map(n => `<div class="list-item" style="${n.unread ? 'background:var(--primary-soft)' : ''}">
       <span class="ico" style="width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--${n.type}-soft);color:var(--${n.type})">${ic(n.type === 'ok' ? 'check' : n.type === 'info' ? 'info' : 'alert')}</span>
       <div class="grow"><div class="t">${n.t}</div><div class="s">${n.s}</div></div>
       <div style="text-align:right"><div class="muted" style="font-size:12px;margin-bottom:4px">${n.when}</div><div style="display:flex;gap:4px;justify-content:flex-end;color:var(--muted)">${n.ch.map(c => `<span title="${chIcon[c][1]}">${ic(chIcon[c][0], 14)}</span>`).join('')}</div></div>
@@ -891,7 +894,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-action],[data-role],[data-cf],[data-rv],[data-tab],[data-go],[data-do-assign],[data-vat],[data-acc],[data-fm],[data-ff],[data-wb],[data-gen],[data-input],[data-remind-v],[data-save],[data-kmgo]');
   if (!t) return;
   const d = t.dataset;
-  if (d.role) { state.role = d.role; render(); toast(d.role === 'admin' ? 'Vizualizare ca Admin' : 'Vizualizare ca Contabil (Ana Rusu)'); return; }
+  if (d.role) { state.role = d.role; if (state.clientFilter === 'debt') state.clientFilter = 'all'; render(); toast(d.role === 'admin' ? 'Vizualizare ca Admin' : 'Vizualizare ca Contabil (Ana Rusu)'); return; }
   if (d.cf) { state.clientFilter = d.cf; render(); return; }
   if (d.rv) { state.reportView = d.rv; render(); return; }
   if (d.tab) { state.clientTab = d.tab; render(); return; }
