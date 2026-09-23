@@ -18,3 +18,11 @@ CRM pentru firme de contabilitate din Moldova.
 - **Cache / Queue:** Redis, Celery
 - **Realtime:** WebSocket (FastAPI)
 - **Notificări:** SMTP + Telegram Bot
+
+## Demo design (mockup)
+Prototip vizual interactiv, fără backend, cu date fictive: [`mockup/index.html`](mockup/index.html).
+Se deschide direct în browser (dublu-click) sau:
+```bash
+python -m http.server 5500 --directory mockup
+```
+apoi http://localhost:5500

@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ContaCRM — Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e2e5ea;
+  --text: #15171c;
+  --muted: #667085;
+  --primary: #2f5bea;
+  --primary-soft: #e9eefe;
+  --primary-text: #ffffff;
+  --ok: #0f9152;   --ok-soft: #e3f5eb;
+  --warn: #b86e00; --warn-soft: #fdf2df;
+  --bad: #d22f22;  --bad-soft: #fdeceb;
+  --info: #0b6f8a; --info-soft: #e1f3f8;
+  --grey-soft: #eef0f3;
+  --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+  --radius: 10px;
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #171a20; --surface-2: #1e222a; --border: #2a2f39;
+  --text: #e8eaee; --muted: #9098a8; --primary: #6b8cff; --primary-soft: #1f2a4a; --primary-text: #0f1115;
+  --ok: #3fcf8e; --ok-soft: #133224; --warn: #f0b24a; --warn-soft: #3a2c12;
+  --bad: #ff6b5e; --bad-soft: #3d1a17; --info: #4cc3e0; --info-soft: #11303a; --grey-soft: #242933;
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #171a20; --surface-2: #1e222a; --border: #2a2f39;
+    --text: #e8eaee; --muted: #9098a8; --primary: #6b8cff; --primary-soft: #1f2a4a; --primary-text: #0f1115;
+    --ok: #3fcf8e; --ok-soft: #133224; --warn: #f0b24a; --warn-soft: #3a2c12;
+    --bad: #ff6b5e; --bad-soft: #3d1a17; --info: #4cc3e0; --info-soft: #11303a; --grey-soft: #242933;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+a { color: var(--primary); text-decoration: none; }
+button, input, select { font: inherit; color: inherit; }
+svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+/* Layout */
+.app { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; font-weight: 700; font-size: 16px; }
+.brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: var(--primary-text); display: grid; place-items: center; font-size: 14px; }
+.nav-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 14px 10px 6px; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--muted); font-weight: 500; }
+.nav a:hover { background: var(--surface-2); color: var(--text); }
+.nav a.active { background: var(--primary-soft); color: var(--primary); }
+.nav a .count { margin-left: auto; font-size: 11px; background: var(--bad); color: #fff; border-radius: 99px; padding: 1px 7px; }
+.sidebar-foot { margin-top: auto; padding: 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+
+.main { min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+.search { flex: 1; max-width: 420px; display: flex; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 8px; padding: 8px 12px; color: var(--muted); }
+.search input { border: 0; background: transparent; outline: 0; width: 100%; }
+.topbar .spacer { flex: 1; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--muted); position: relative; }
+.icon-btn:hover { color: var(--text); }
+.icon-btn .dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; background: var(--bad); border-radius: 50%; }
+.role-switch { display: flex; background: var(--surface-2); border-radius: 8px; padding: 3px; }
+.role-switch button { border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; cursor: pointer; color: var(--muted); font-weight: 500; }
+.role-switch button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.user { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.menu-btn { display: none; }
+
+.content { padding: 24px; max-width: 1320px; width: 100%; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.page-head h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+.page-head p { margin: 0; color: var(--muted); }
+.crumbs { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+/* Components */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); gap: 10px; }
+.card-h h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.card-b { padding: 16px; }
+.grid { display: grid; gap: 16px; }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g-main { grid-template-columns: 2fr 1fr; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 500; white-space: nowrap; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.sm { padding: 5px 10px; font-size: 13px; }
+.btn.ghost { border-color: transparent; background: transparent; }
+
+.kpi { padding: 16px; }
+.kpi .lbl { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.kpi .val { font-size: 28px; font-weight: 700; margin: 8px 0 4px; letter-spacing: -.02em; }
+.kpi .sub { font-size: 12px; color: var(--muted); }
+.kpi .ico { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; margin-left: auto; }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.plain::before { display: none; }
+.b-ok { background: var(--ok-soft); color: var(--ok); }
+.b-warn { background: var(--warn-soft); color: var(--warn); }
+.b-bad { background: var(--bad-soft); color: var(--bad); }
+.b-info { background: var(--info-soft); color: var(--info); }
+.b-pri { background: var(--primary-soft); color: var(--primary); }
+.b-grey { background: var(--grey-soft); color: var(--muted); }
+
+.avatar { width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 600; color: #fff; flex-shrink: 0; }
+.avatar.lg { width: 44px; height: 44px; font-size: 15px; }
+.who { display: inline-flex; align-items: center; gap: 8px; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr.link { cursor: pointer; }
+tbody tr.link:hover td { background: var(--surface-2); }
+.table-wrap { overflow-x: auto; }
+.mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.strong { font-weight: 600; }
+
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.input, select.input { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; outline: 0; }
+.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 7px 12px; cursor: pointer; color: var(--muted); border-right: 1px solid var(--border); }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--primary-soft); color: var(--primary); font-weight: 500; }
+
+.list-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.list-item:last-child { border-bottom: 0; }
+.list-item .grow { flex: 1; min-width: 0; }
+.list-item .t { font-weight: 500; }
+.list-item .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.bar { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: 99px; background: var(--primary); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding: 0 16px; overflow-x: auto; }
+.tabs button { border: 0; background: transparent; padding: 12px 10px; cursor: pointer; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button.on { color: var(--primary); border-bottom-color: var(--primary); }
+
+.dl { display: grid; grid-template-columns: 180px 1fr; gap: 12px 16px; }
+.dl dt { color: var(--muted); }
+.dl dd { margin: 0; font-weight: 500; }
+
+.chip-r { display: inline-grid; place-items: center; min-width: 38px; height: 26px; padding: 0 6px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+
+.matrix td { text-align: center; padding: 8px; }
+.matrix td:first-child, .matrix th:first-child { text-align: left; padding-left: 16px; }
+.matrix th { text-align: center; }
+.matrix .na { color: var(--border); }
+
+.kanban { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 16px; overflow-x: auto; }
+.col { background: var(--surface-2); border-radius: var(--radius); padding: 10px; min-height: 300px; }
+.col-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 10px; font-weight: 600; }
+.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.tcard .t { font-weight: 600; margin-bottom: 4px; }
+.tcard .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.steps-mini { display: flex; gap: 4px; margin-top: 10px; }
+.steps-mini span { flex: 1; height: 4px; border-radius: 99px; background: var(--border); }
+.steps-mini span.on { background: var(--primary); }
+
+.switch { position: relative; width: 36px; height: 20px; display: inline-block; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: var(--border); border-radius: 99px; cursor: pointer; transition: .15s; }
+.switch span::after { content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .15s; }
+.switch input:checked + span { background: var(--primary); }
+.switch input:checked + span::after { transform: translateX(16px); }
+
+.wizard-steps { display: flex; gap: 0; padding: 20px 24px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.wstep { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 170px; color: var(--muted); font-weight: 500; }
+.wstep .n { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+.wstep.on { color: var(--text); }
+.wstep.on .n { border-color: var(--primary); color: var(--primary); }
+.wstep.done .n { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.wstep .line { flex: 1; height: 2px; background: var(--border); margin: 0 10px; }
+.wstep.done .line { background: var(--primary); }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 13px; font-weight: 500; }
+.field .hint { font-size: 12px; color: var(--muted); }
+.radio-card { border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; display: flex; gap: 12px; }
+.radio-card.on { border-color: var(--primary); background: var(--primary-soft); }
+.radio-card input { margin-top: 3px; accent-color: var(--primary); }
+.callout { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--radius); background: var(--info-soft); color: var(--text); }
+.callout svg { color: var(--info); margin-top: 1px; }
+
+.timeline { position: relative; padding-left: 22px; }
+.timeline::before { content: ""; position: absolute; left: 6px; top: 6px; bottom: 6px; width: 2px; background: var(--border); }
+.tl { position: relative; padding-bottom: 16px; }
+.tl::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--primary); }
+.tl .s { font-size: 12px; color: var(--muted); }
+
+.client-head { display: flex; gap: 16px; align-items: center; padding: 20px; flex-wrap: wrap; }
+.client-logo { width: 56px; height: 56px; border-radius: 12px; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; font-weight: 700; font-size: 20px; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg); padding: 12px 18px; border-radius: 10px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); transform: translateY(20px); opacity: 0; transition: .2s; pointer-events: none; z-index: 50; }
+.toast.show { transform: none; opacity: 1; }
+
+.progress { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.progress span { display: block; height: 100%; background: var(--primary); width: 0; transition: width .3s; }
+
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .g4 { grid-template-columns: repeat(2, 1fr); }
+  .g-main, .g3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 800px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: fixed; z-index: 20; width: 250px; transform: translateX(-100%); transition: .2s; box-shadow: 0 0 40px rgba(0,0,0,.2); }
+  .sidebar.open { transform: none; }
+  .menu-btn { display: grid; }
+  .topbar { padding: 10px 16px; }
+  .topbar .user span, .search { display: none; }
+  .content { padding: 16px; }
+  .g4, .g2, .form { grid-template-columns: 1fr; }
+  .dl { grid-template-columns: 1fr; gap: 2px 0; }
+  .dl dd { margin-bottom: 10px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">C</div>ContaCRM</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">Birou Contabil „Exemplu” SRL<br>Demo mockup · date fictive</div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" data-action="menu" aria-label="Meniu"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Caută client, IDNO, raport…"></div>
+      <div class="spacer"></div>
+      <div class="role-switch" id="roleSwitch">
+        <button data-role="admin">Admin</button>
+        <button data-role="contabil">Contabil</button>
+      </div>
+      <button class="icon-btn" data-action="theme" aria-label="Temă"><svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+      <a class="icon-btn" href="#/notificari" aria-label="Notificări"><svg class="i" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="dot"></span></a>
+      <div class="user" id="userBox"></div>
+    </header>
+    <main class="content" id="view"></main>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- Icons ---------- */
+const I = {
+  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  clients: '<path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16"/><path d="M15 9h4a1 1 0 0 1 1 1v11M8 8h3M8 12h3M8 16h3M3 21h18"/>',
+  reports: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  truck: '<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  team: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"/>',
+  bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  sync: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
+  alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.5"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  send: '<path d="M21 3 3 10.5l7 2.5 2.5 7z"/><path d="m21 3-11 10"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  pin: '<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  bank: '<path d="M3 10 12 4l9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/>',
+  phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+};
+const ic = (n, s) => `<svg class="i" viewBox="0 0 24 24"${s ? ` style="width:${s}px;height:${s}px"` : ''}>${I[n]}</svg>`;
+
+/* ---------- Mock data ---------- */
+const ACC = [
+  { id: 1, name: 'Ana Rusu', color: '#2f5bea', email: 'ana.rusu@birou.md' },
+  { id: 2, name: 'Ion Ceban', color: '#0f9152', email: 'ion.ceban@birou.md' },
+  { id: 3, name: 'Maria Lungu', color: '#c2410c', email: 'maria.lungu@birou.md' },
+  { id: 4, name: 'Victor Popa', color: '#7c3aed', email: 'victor.popa@birou.md' },
+];
+const CLIENTS = [
+  [1, 'Agro-Nord SRL', '1003600012345', true, 'SRL', 1, 'Bălți', 'activ', 0],
+  [2, 'Vinăria Codru SA', '1002600054321', true, 'SA', 2, 'Chișinău', 'activ', 18450],
+  [3, 'ÎI Moraru Petru', '1010600023456', false, 'ÎI', 1, 'Orhei', 'activ', 0],
+  [4, 'TechSoft Solutions SRL', '1015600034567', true, 'SRL', 3, 'Chișinău', 'activ', 6200],
+  [5, 'Mobila Lux SRL', '1008600045678', false, 'SRL', 2, 'Ungheni', 'activ', 0],
+  [6, 'Farmacia Sănătate SRL', '1012600056789', true, 'SRL', 4, 'Cahul', 'activ', 3100],
+  [7, 'Construct-Grup SRL', '1006600067890', true, 'SRL', 1, 'Chișinău', 'activ', 0],
+  [8, 'Cafeneaua Aroma SRL', '1019600078901', false, 'SRL', 3, 'Chișinău', 'activ', 1250],
+  [9, 'Transavto Logistic SRL', '1004600089012', true, 'SRL', 4, 'Comrat', 'activ', 0],
+  [10, 'ÎI Ciobanu Elena', '1021600090123', false, 'ÎI', null, 'Soroca', 'onboarding', 0],
+  [11, 'Dental Art SRL', '1017600001234', false, 'SRL', 2, 'Chișinău', 'activ', 0],
+  [12, 'Moldagro Export SA', '1001600011223', true, 'SA', 3, 'Edineț', 'activ', 24800],
+  [13, 'Print Studio SRL', '1022600022334', false, 'SRL', null, 'Chișinău', 'onboarding', 0],
+  [14, 'Eco Fructe SRL', '1011600033445', true, 'SRL', 1, 'Criuleni', 'activ', 0],
+].map(([id, name, idno, vat, form, acc, city, status, debt]) => ({ id, name, idno, vat, form, acc, city, status, debt }));
+
+const VAT_R = ['R1', 'R2', 'R3'];
+const NOVAT_R = ['R4', 'R5', 'R6'];
+const reportsFor = c => c.vat ? VAT_R : NOVAT_R;
+const RSTAT = {
+  depus:   { label: 'Depus',    cls: 'b-ok' },
+  lucru:   { label: 'În lucru', cls: 'b-warn' },
+  todo:    { label: 'De făcut', cls: 'b-grey' },
+  restant: { label: 'Restant',  cls: 'b-bad' },
+};
+function repStatus(c, r, period = 0) {
+  if (c.status === 'onboarding') return 'todo';
+  if (period > 0) return 'depus';
+  const h = (c.id * 7 + parseInt(r.slice(1)) * 3) % 10;
+  return h < 5 ? 'depus' : h < 7 ? 'lucru' : h < 9 ? 'todo' : 'restant';
+}
+
+const TRANSPORT = [
+  { id: 'T-1042', client: 2, type: 'Ridicare documente primare', courier: 'Sergiu B.', date: '23 sep, 10:00', status: 'drum', step: 2 },
+  { id: 'T-1043', client: 12, type: 'Ridicare facturi august', courier: 'Sergiu B.', date: '23 sep, 14:30', status: 'programat', step: 1 },
+  { id: 'T-1044', client: 6, type: 'Livrare rapoarte semnate', courier: 'Andrei M.', date: '24 sep, 09:00', status: 'programat', step: 1 },
+  { id: 'T-1039', client: 1, type: 'Ridicare extrase bancare', courier: 'Andrei M.', date: '22 sep, 11:00', status: 'livrat', step: 4 },
+  { id: 'T-1040', client: 9, type: 'Livrare contracte', courier: 'Sergiu B.', date: '22 sep, 15:00', status: 'livrat', step: 4 },
+  { id: 'T-1041', client: 4, type: 'Ridicare documente primare', courier: 'Andrei M.', date: '23 sep, 09:30', status: 'problema', step: 2, note: 'Clientul nu a fost la oficiu' },
+  { id: 'T-1045', client: 7, type: 'Ridicare acte de achiziție', courier: 'Sergiu B.', date: '23 sep, 16:00', status: 'drum', step: 3 },
+];
+const TSTAT = {
+  programat: { label: 'Programat', cls: 'b-grey' },
+  drum:      { label: 'În drum',   cls: 'b-info' },
+  livrat:    { label: 'Livrat',    cls: 'b-ok' },
+  problema:  { label: 'Problemă',  cls: 'b-bad' },
+};
+
+const NOTIFS = [
+  { t: 'Termen raport R1 — 25 septembrie', s: '6 clienți plătitori TVA au R1 nedepus pentru august', when: 'acum 10 min', ch: ['app', 'email', 'tg'], type: 'warn', unread: true },
+  { t: 'Restanță nouă detectată din 1C', s: 'Moldagro Export SA — 24 800 MDL, 45 zile', when: 'acum 1 oră', ch: ['app', 'tg'], type: 'bad', unread: true },
+  { t: 'Transport T-1041 — problemă', s: 'TechSoft Solutions SRL: clientul nu a fost la oficiu', when: 'acum 2 ore', ch: ['app', 'tg'], type: 'bad', unread: true },
+  { t: 'Client nou în onboarding', s: 'Print Studio SRL — așteaptă repartizare pe contabil', when: 'ieri, 17:40', ch: ['app', 'email'], type: 'info', unread: false },
+  { t: 'Sincronizare 1C finalizată', s: '142 clienți actualizați, 3 restanțe noi', when: 'ieri, 06:00', ch: ['app'], type: 'ok', unread: false },
+  { t: 'Raport R4 depus', s: 'Dental Art SRL — depus de Ion Ceban', when: 'ieri, 12:15', ch: ['app'], type: 'ok', unread: false },
+];
+
+/* ---------- State ---------- */
+const state = {
+  role: 'admin',
+  meId: 1,
+  clientFilter: 'all',
+  clientQuery: '',
+  clientTab: 'legal',
+  reportView: 'all',
+  wiz: { step: 1, idno: '', name: '', form: 'SRL', vat: null, iban: '', bank: 'MAIB', contact: '', phone: '', email: '', acc: '' },
+  syncing: false,
+};
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const acc = id => ACC.find(a => a.id === id);
+const client = id => CLIENTS.find(c => c.id === id);
+const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const avatar = (a, lg) => a ? `<span class="avatar${lg ? ' lg' : ''}" style="background:${a.color}">${initials(a.name)}</span>` : `<span class="avatar${lg ? ' lg' : ''}" style="background:var(--border);color:var(--muted)">?</span>`;
+const who = a => a ? `<span class="who">${avatar(a)}${a.name}</span>` : '<span class="badge b-warn">Nerepartizat</span>';
+const mdl = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' MDL';
+const badge = (s, map) => `<span class="badge ${map[s].cls}">${map[s].label}</span>`;
+const vatBadge = c => c.vat ? '<span class="badge plain b-pri">Plătitor TVA</span>' : '<span class="badge plain b-grey">Non-TVA</span>';
+const visibleClients = () => state.role === 'contabil' ? CLIENTS.filter(c => c.acc === state.meId) : CLIENTS;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------- Navigation ---------- */
+const NAV = [
+  { group: 'Principal' },
+  { href: '#/', label: 'Panou', icon: 'home' },
+  { href: '#/clienti', label: 'Clienți', icon: 'clients' },
+  { href: '#/rapoarte', label: 'Rapoarte', icon: 'reports', count: () => visibleClients().reduce((n, c) => n + reportsFor(c).filter(r => repStatus(c, r) === 'restant').length, 0) },
+  { href: '#/transport', label: 'Transport', icon: 'truck' },
+  { href: '#/notificari', label: 'Notificări', icon: 'bell', count: () => NOTIFS.filter(n => n.unread).length },
+  { group: 'Administrare', admin: true },
+  { href: '#/echipa', label: 'Distribuție clienți', icon: 'team', admin: true },
+  { href: '#/sync', label: 'Sync 1C', icon: 'sync', admin: true },
+  { href: '#/onboarding', label: 'Client nou', icon: 'plus' },
+];
+function renderNav(path) {
+  $('#nav').innerHTML = NAV.filter(n => !n.admin || state.role === 'admin').map(n => {
+    if (n.group) return `<div class="nav-label">${n.group}</div>`;
+    const base = n.href.slice(1);
+    const active = base === '/' ? path === '/' : path.startsWith(base) || (base === '/clienti' && path.startsWith('/client/'));
+    const cnt = n.count ? n.count() : 0;
+    return `<a href="${n.href}" class="${active ? 'active' : ''}">${ic(n.icon)}${n.label}${cnt ? `<span class="count">${cnt}</span>` : ''}</a>`;
+  }).join('');
+  document.querySelectorAll('#roleSwitch button').forEach(b => b.classList.toggle('on', b.dataset.role === state.role));
+  const me = state.role === 'admin' ? { name: 'Administrator', color: '#475467' } : acc(state.meId);
+  $('#userBox').innerHTML = `${avatar(me)}<span>${me.name}</span>`;
+}
+
+/* ---------- Pages ---------- */
+function pageDashboard() {
+  const cl = visibleClients();
+  const allReps = cl.flatMap(c => reportsFor(c).map(r => ({ c, r, s: repStatus(c, r) })));
+  const pending = allReps.filter(x => x.s !== 'depus');
+  const late = allReps.filter(x => x.s === 'restant');
+  const debts = cl.filter(c => c.debt > 0);
+  const transit = TRANSPORT.filter(t => (t.status === 'drum' || t.status === 'programat') && cl.some(c => c.id === t.client));
+  const done = allReps.length - pending.length;
+  const pct = Math.round(done / allReps.length * 100);
+
+  const kpi = (lbl, val, sub, icon, tone) => `<div class="card kpi"><div class="lbl">${lbl}<span class="ico" style="background:var(--${tone}-soft);color:var(--${tone})">${ic(icon)}</span></div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+
+  const workload = ACC.map(a => {
+    const n = CLIENTS.filter(c => c.acc === a.id).length;
+    return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:6px">${who(a)}<span class="muted">${n} clienți</span></div><div class="bar"><span style="width:${n / 6 * 100}%;background:${a.color}"></span></div></div>`;
+  }).join('');
+
+  return `
+  <div class="page-head"><div><h1>Bună dimineața${state.role === 'contabil' ? ', ' + acc(state.meId).name.split(' ')[0] : ''} 👋</h1><p>Miercuri, 23 septembrie 2026 · perioada de raportare: <b>august 2026</b>, termen <b>25 septembrie</b></p></div>
+    <a class="btn primary" href="#/onboarding">${ic('plus')}Client nou</a></div>
+  <div class="grid g4" style="margin-bottom:16px">
+    ${kpi(state.role === 'admin' ? 'Clienți activi' : 'Clienții mei', cl.filter(c => c.status === 'activ').length, `${cl.filter(c => c.vat).length} plătitori TVA · ${cl.filter(c => !c.vat).length} non-TVA`, 'clients', 'primary')}
+    ${kpi('Rapoarte de depus', pending.length, `${late.length} restante · termen în 2 zile`, 'reports', 'warn')}
+    ${kpi('Restanțe 1C', mdl(debts.reduce((s, c) => s + c.debt, 0)), `${debts.length} clienți cu datorii`, 'coin', 'bad')}
+    ${kpi('Transport activ', transit.length, 'ridicări și livrări azi', 'truck', 'info')}
+  </div>
+  <div class="grid g-main">
+    <div class="grid" style="align-content:start">
+      <div class="card">
+        <div class="card-h"><h3>Progres rapoarte — august 2026</h3><a href="#/rapoarte" class="btn sm ghost">Vezi toate ${ic('arrow', 14)}</a></div>
+        <div class="card-b">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px"><span style="font-size:26px;font-weight:700">${pct}%</span><span class="muted">${done} din ${allReps.length} rapoarte depuse</span></div>
+          <div class="bar" style="height:10px;display:flex">
+            ${['depus', 'lucru', 'todo', 'restant'].map(s => `<span style="width:${allReps.filter(x => x.s === s).length / allReps.length * 100}%;background:var(--${{ depus: 'ok', lucru: 'warn', todo: 'border', restant: 'bad' }[s]});border-radius:0"></span>`).join('')}
+          </div>
+          <div class="legend" style="margin-top:10px">${Object.keys(RSTAT).map(s => `<span>${badge(s, RSTAT)} ${allReps.filter(x => x.s === s).length}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Necesită atenție</h3><span class="badge b-bad">${late.length + pending.filter(x => x.s === 'lucru').length}</span></div>
+        <div>
+          ${[...late, ...pending.filter(x => x.s === 'lucru')].slice(0, 6).map(x => `
+            <div class="list-item">
+              <span class="chip-r ${x.c.vat ? 'b-pri' : 'b-grey'}">${x.r}</span>
+              <div class="grow"><div class="t"><a href="#/client/${x.c.id}">${x.c.name}</a></div><div class="s">IDNO ${x.c.idno} · ${x.c.vat ? 'plătitor TVA' : 'non-TVA'}</div></div>
+              ${state.role === 'admin' ? `<span class="muted" style="font-size:13px">${acc(x.c.acc)?.name ?? '—'}</span>` : ''}
+              ${badge(x.s, RSTAT)}
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="grid" style="align-content:start">
+      ${state.role === 'admin' ? `<div class="card"><div class="card-h"><h3>Încărcare contabili</h3><a href="#/echipa" class="btn sm ghost">Gestionează</a></div><div class="card-b">${workload}
+        <div class="callout" style="margin-top:4px">${ic('info')}<div style="font-size:13px"><b>${CLIENTS.filter(c => !c.acc).length} clienți</b> așteaptă repartizare. <a href="#/echipa">Repartizează →</a></div></div></div></div>` : ''}
+      <div class="card"><div class="card-h"><h3>Activitate recentă</h3></div><div class="card-b"><div class="timeline">
+        ${NOTIFS.slice(0, 5).map(n => `<div class="tl"><div>${n.t}</div><div class="s">${n.when}</div></div>`).join('')}
+      </div></div></div>
+    </div>
+  </div>`;
+}
+
+function pageClients() {
+  let cl = visibleClients();
+  if (state.clientFilter === 'vat') cl = cl.filter(c => c.vat);
+  if (state.clientFilter === 'novat') cl = cl.filter(c => !c.vat);
+  if (state.clientFilter === 'debt') cl = cl.filter(c => c.debt > 0);
+  const q = state.clientQuery.toLowerCase();
+  if (q) cl = cl.filter(c => c.name.toLowerCase().includes(q) || c.idno.includes(q));
+  const seg = (k, l) => `<button data-cf="${k}" class="${state.clientFilter === k ? 'on' : ''}">${l}</button>`;
+  return `
+  <div class="page-head"><div><h1>Clienți</h1><p>${visibleClients().length} ${state.role === 'contabil' ? 'clienți repartizați ție' : 'clienți în portofoliu'}</p></div>
+    <div style="display:flex;gap:8px"><button class="btn" data-action="export">${ic('download')}Export</button><a class="btn primary" href="#/onboarding">${ic('plus')}Client nou</a></div></div>
+  <div class="card">
+    <div class="toolbar">
+      <input class="input" id="cq" placeholder="Caută după nume sau IDNO" value="${state.clientQuery}" style="min-width:240px">
+      <div class="seg">${seg('all', 'Toți')}${seg('vat', 'Plătitori TVA')}${seg('novat', 'Non-TVA')}${seg('debt', 'Cu restanțe')}</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Denumire</th><th>IDNO</th><th>Regim</th><th>Rapoarte</th><th>Contabil</th><th>Localitate</th><th class="num">Restanță 1C</th><th>Status</th></tr></thead>
+      <tbody>${cl.map(c => `
+        <tr class="link" data-go="#/client/${c.id}">
+          <td class="strong">${c.name}</td>
+          <td class="mono muted">${c.idno}</td>
+          <td>${vatBadge(c)}</td>
+          <td>${reportsFor(c).map(r => `<span class="chip-r ${RSTAT[repStatus(c, r)].cls}" title="${RSTAT[repStatus(c, r)].label}" style="margin-right:4px">${r}</span>`).join('')}</td>
+          <td>${who(acc(c.acc))}</td>
+          <td class="muted">${c.city}</td>
+          <td class="num ${c.debt ? '' : 'muted'}" style="${c.debt ? 'color:var(--bad);font-weight:600' : ''}">${c.debt ? mdl(c.debt) : '—'}</td>
+          <td>${c.status === 'activ' ? '<span class="badge b-ok">Activ</span>' : '<span class="badge b-info">Onboarding</span>'}</td>
+        </tr>`).join('') || `<tr><td colspan="8" class="muted" style="text-align:center;padding:40px">Niciun client găsit</td></tr>`}
+      </tbody></table></div>
+  </div>`;
+}
+
+function pageClient(id) {
+  const c = client(+id);
+  if (!c) return '<p>Client inexistent.</p>';
+  const a = acc(c.acc);
+  const tab = (k, l) => `<button data-tab="${k}" class="${state.clientTab === k ? 'on' : ''}">${l}</button>`;
+  const director = ['Petru Moraru', 'Ion Rotaru', 'Elena Cazacu', 'Vasile Munteanu'][c.id % 4];
+  let body = '';
+  if (state.clientTab === 'legal') body = `
+    <dl class="dl">
+      <dt>Denumire completă</dt><dd>${c.form === 'ÎI' ? 'Întreprinderea Individuală' : c.form === 'SA' ? 'Societatea pe Acțiuni' : 'Societatea cu Răspundere Limitată'} „${c.name.replace(/ (SRL|SA)$/, '').replace(/^ÎI /, '')}”</dd>
+      <dt>IDNO</dt><dd class="mono">${c.idno}</dd>
+      <dt>Formă juridică</dt><dd>${c.form}</dd>
+      <dt>Regim fiscal</dt><dd>${c.vat ? `Plătitor TVA · cod TVA <span class="mono">0${c.idno.slice(5, 12)}</span>` : 'Neînregistrat ca plătitor TVA'}</dd>
+      <dt>Rapoarte atribuite</dt><dd>${reportsFor(c).map(r => `<span class="chip-r b-pri" style="margin-right:4px">${r}</span>`).join('')} <span class="muted" style="font-size:12px">· clasificare automată după regimul TVA</span></dd>
+      <dt>Adresă juridică</dt><dd>mun. ${c.city}, str. Ștefan cel Mare ${10 + c.id}, of. ${c.id * 3}</dd>
+      <dt>Administrator</dt><dd>${director}</dd>
+      <dt>Activitate (CAEM)</dt><dd>${['01.11 Cultivarea cerealelor', '11.02 Fabricarea vinurilor', '62.01 Programare', '47.73 Farmacii', '49.41 Transport rutier'][c.id % 5]}</dd>
+      <dt>Data înregistrării</dt><dd>${(c.id % 28) + 1}.0${(c.id % 9) + 1}.20${10 + c.id}</dd>
+      <dt>Client din</dt><dd>${c.status === 'onboarding' ? 'Onboarding în curs' : 'martie 2023'}</dd>
+    </dl>`;
+  if (state.clientTab === 'bank') body = `
+    <div class="grid g2">${[['MAIB', 'MD24AG000000022512' + c.idno.slice(-6), 'MDL', true], ['Victoriabank', 'MD68VI000000022' + c.idno.slice(-9), 'EUR', false]].slice(0, c.vat ? 2 : 1).map(([b, iban, cur, main]) => `
+      <div class="card" style="box-shadow:none"><div class="card-b" style="display:flex;gap:12px">
+        <span class="ico" style="width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--primary-soft);color:var(--primary)">${ic('bank')}</span>
+        <div style="flex:1"><div class="strong">${b} ${main ? '<span class="badge plain b-ok" style="margin-left:6px">Principal</span>' : ''}</div>
+        <div class="mono" style="margin:6px 0">${iban.slice(0, 24)}</div><div class="muted" style="font-size:12px">Valută: ${cur}</div></div>
+      </div></div>`).join('')}
+      <button class="btn" style="justify-content:center;border-style:dashed;min-height:90px" data-action="soon">${ic('plus')}Adaugă cont</button>
+    </div>`;
+  if (state.clientTab === 'contacts') body = `
+    <div class="table-wrap"><table><thead><tr><th>Nume</th><th>Rol</th><th>Telefon</th><th>Email</th><th>Telegram</th></tr></thead><tbody>
+      <tr><td class="strong">${director}</td><td>Administrator</td><td class="mono">+373 69 ${100 + c.id} ${200 + c.id * 3}</td><td>director@${c.name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '')}.md</td><td><span class="badge b-ok">conectat</span></td></tr>
+      <tr><td class="strong">${['Natalia Ursu', 'Olga Bivol', 'Irina Sârbu'][c.id % 3]}</td><td>Contabil intern</td><td class="mono">+373 79 ${300 + c.id} ${400 + c.id}</td><td>contabil@${c.name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '')}.md</td><td><span class="badge b-grey">neconectat</span></td></tr>
+    </tbody></table></div>`;
+  if (state.clientTab === 'reports') body = `
+    <div class="table-wrap"><table class="matrix"><thead><tr><th>Perioadă</th>${reportsFor(c).map(r => `<th>${r}</th>`).join('')}<th>Termen</th></tr></thead><tbody>
+      ${['August 2026', 'Iulie 2026', 'Iunie 2026', 'Mai 2026'].map((p, i) => `<tr><td class="strong">${p}</td>${reportsFor(c).map(r => `<td>${badge(repStatus(c, r, i), RSTAT)}</td>`).join('')}<td class="muted">25.${String(9 - i).padStart(2, '0')}.2026</td></tr>`).join('')}
+    </tbody></table></div>`;
+  if (state.clientTab === 'history') body = `<div class="timeline">
+      <div class="tl"><div>Sync 1C: ${c.debt ? `restanță ${mdl(c.debt)} detectată` : 'fără restanțe'}</div><div class="s">azi, 06:00 · sistem</div></div>
+      <div class="tl"><div>Transport T-10${30 + c.id} livrat — documente primare august</div><div class="s">12 sep 2026 · Andrei M.</div></div>
+      <div class="tl"><div>${reportsFor(c)[0]} pentru iulie depus</div><div class="s">24 aug 2026 · ${a?.name ?? '—'}</div></div>
+      <div class="tl"><div>Notificare Telegram trimisă administratorului</div><div class="s">20 aug 2026 · sistem</div></div>
+      <div class="tl"><div>Client repartizat către ${a?.name ?? '—'}</div><div class="s">3 mar 2023 · Admin</div></div>
+    </div>`;
+
+  return `
+  <div class="crumbs"><a href="#/clienti">Clienți</a> / ${c.name}</div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="client-head">
+      <div class="client-logo">${initials(c.name.replace(/^ÎI /, ''))}</div>
+      <div style="flex:1;min-width:200px"><h1 style="margin:0 0 6px;font-size:22px">${c.name}</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${vatBadge(c)} <span class="muted mono">IDNO ${c.idno}</span> <span class="muted">· ${ic('pin', 14)} ${c.city}</span></div></div>
+      <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Contabil responsabil</div>${who(a)}</div>
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Restanță 1C</div><div class="strong" style="color:${c.debt ? 'var(--bad)' : 'var(--ok)'}">${c.debt ? mdl(c.debt) : 'Achitat'}</div></div>
+        <button class="btn" data-action="soon">${ic('truck')}Programează transport</button>
+      </div>
+    </div>
+    <div class="tabs">${tab('legal', 'Date legale')}${tab('bank', 'Conturi bancare')}${tab('contacts', 'Contacte')}${tab('reports', 'Rapoarte')}${tab('history', 'Istoric')}</div>
+    <div class="card-b" style="padding:20px">${body}</div>
+  </div>`;
+}
+
+function pageReports() {
+  let cl = visibleClients();
+  const v = state.reportView;
+  const showVat = v !== 'novat', showNo = v !== 'vat';
+  const cell = (c, r) => reportsFor(c).includes(r) ? `<td>${badge(repStatus(c, r), RSTAT)}</td>` : '<td class="na">—</td>';
+  const cols = [...(showVat ? VAT_R : []), ...(showNo ? NOVAT_R : [])];
+  if (v === 'vat') cl = cl.filter(c => c.vat);
+  if (v === 'novat') cl = cl.filter(c => !c.vat);
+  const seg = (k, l) => `<button data-rv="${k}" class="${v === k ? 'on' : ''}">${l}</button>`;
+  return `
+  <div class="page-head"><div><h1>Rapoarte</h1><p>Perioada: august 2026 · termen de depunere 25.09.2026</p></div>
+    <select class="input"><option>August 2026</option><option>Iulie 2026</option><option>Iunie 2026</option></select></div>
+  <div class="grid g2" style="margin-bottom:16px">
+    <div class="card card-b" style="display:flex;gap:14px;align-items:center"><span class="chip-r b-pri" style="height:40px;min-width:60px">TVA</span><div><div class="strong">Plătitori TVA → R1, R2, R3</div><div class="muted" style="font-size:13px">${visibleClients().filter(c => c.vat).length} clienți · clasificați automat după statutul TVA</div></div></div>
+    <div class="card card-b" style="display:flex;gap:14px;align-items:center"><span class="chip-r b-grey" style="height:40px;min-width:60px">non</span><div><div class="strong">Non-plătitori → R4, R5, R6</div><div class="muted" style="font-size:13px">${visibleClients().filter(c => !c.vat).length} clienți · clasificați automat după statutul TVA</div></div></div>
+  </div>
+  <div class="card">
+    <div class="toolbar"><div class="seg">${seg('all', 'Toți')}${seg('vat', 'Plătitori TVA')}${seg('novat', 'Non-TVA')}</div><div style="flex:1"></div>
+      <div class="legend">${Object.keys(RSTAT).map(s => badge(s, RSTAT)).join('')}</div></div>
+    <div class="table-wrap"><table class="matrix"><thead><tr><th>Client</th>${cols.map(r => `<th>${r}</th>`).join('')}${state.role === 'admin' ? '<th style="text-align:left">Contabil</th>' : ''}</tr></thead>
+    <tbody>${cl.map(c => `<tr class="link" data-go="#/client/${c.id}"><td class="strong">${c.name}</td>${cols.map(r => cell(c, r)).join('')}${state.role === 'admin' ? `<td style="text-align:left">${who(acc(c.acc))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
+  </div>`;
+}
+
+function pageTransport() {
+  const cols = ['programat', 'drum', 'livrat', 'problema'];
+  const vis = TRANSPORT.filter(t => visibleClients().some(c => c.id === t.client));
+  return `
+  <div class="page-head"><div><h1>Transport documente</h1><p>Ridicări și livrări de documente · clientul primește notificare la fiecare schimbare de status</p></div>
+    <button class="btn primary" data-action="soon">${ic('plus')}Transport nou</button></div>
+  <div class="kanban">${cols.map(s => {
+    const items = vis.filter(t => t.status === s);
+    return `<div class="col"><div class="col-h"><span>${badge(s, TSTAT)}</span><span class="muted">${items.length}</span></div>
+      ${items.map(t => `<div class="tcard">
+        <div class="muted mono" style="font-size:12px;margin-bottom:4px">${t.id}</div>
+        <div class="t">${client(t.client).name}</div>
+        <div class="muted" style="font-size:13px">${t.type}</div>
+        ${t.note ? `<div class="badge plain b-bad" style="margin-top:8px">${ic('alert', 13)} ${t.note}</div>` : ''}
+        <div class="steps-mini">${[1, 2, 3, 4].map(i => `<span class="${i <= t.step ? 'on' : ''}"></span>`).join('')}</div>
+        <div class="row"><span>${ic('clock', 14)} ${t.date}</span><span>${t.courier}</span></div>
+      </div>`).join('') || '<div class="muted" style="text-align:center;padding:20px;font-size:13px">Nimic aici</div>'}
+    </div>`;
+  }).join('')}</div>
+  <div class="callout" style="margin-top:16px">${ic('send')}<div style="font-size:13px"><b>Notificări automate:</b> la „În drum” clientul primește mesaj pe Telegram cu ora estimată; la „Livrat” — confirmare pe email; la „Problemă” — alertă către contabilul responsabil.</div></div>`;
+}
+
+function pageTeam() {
+  const unassigned = CLIENTS.filter(c => !c.acc);
+  return `
+  <div class="page-head"><div><h1>Distribuție clienți</h1><p>Repartizarea clienților pe contabili · roluri și acces</p></div>
+    <button class="btn" data-action="soon">${ic('plus')}Invită contabil</button></div>
+  <div class="grid g4" style="margin-bottom:16px">${ACC.map(a => {
+    const mine = CLIENTS.filter(c => c.acc === a.id);
+    const late = mine.reduce((n, c) => n + reportsFor(c).filter(r => repStatus(c, r) === 'restant').length, 0);
+    return `<div class="card card-b">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">${avatar(a, true)}<div><div class="strong">${a.name}</div><div class="muted" style="font-size:12px">Contabil · ${a.email}</div></div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:12px">
+        <div><div class="strong" style="font-size:18px">${mine.length}</div><div class="muted" style="font-size:11px">clienți</div></div>
+        <div><div class="strong" style="font-size:18px">${mine.filter(c => c.vat).length}</div><div class="muted" style="font-size:11px">TVA</div></div>
+        <div><div class="strong" style="font-size:18px;color:${late ? 'var(--bad)' : 'inherit'}">${late}</div><div class="muted" style="font-size:11px">restanțe</div></div>
+      </div>
+      <div class="bar"><span style="width:${mine.length / 6 * 100}%;background:${a.color}"></span></div>
+      <div class="muted" style="font-size:11px;margin-top:6px">Încărcare ${Math.round(mine.length / 6 * 100)}% din capacitate (6)</div>
+    </div>`;
+  }).join('')}</div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-h"><h3>Clienți nerepartizați</h3><span class="badge b-warn">${unassigned.length}</span></div>
+    ${unassigned.length ? `<div class="table-wrap"><table><thead><tr><th>Client</th><th>IDNO</th><th>Regim</th><th>Sugestie</th><th>Repartizează</th></tr></thead><tbody>
+      ${unassigned.map(c => {
+        const sug = [...ACC].sort((x, y) => CLIENTS.filter(k => k.acc === x.id).length - CLIENTS.filter(k => k.acc === y.id).length)[0];
+        return `<tr><td class="strong">${c.name}</td><td class="mono muted">${c.idno}</td><td>${vatBadge(c)}</td><td><span class="muted" style="font-size:13px">cel mai puțin încărcat:</span> ${who(sug)}</td>
+        <td><div style="display:flex;gap:8px"><select class="input" data-assign="${c.id}">${ACC.map(a => `<option value="${a.id}" ${a.id === sug.id ? 'selected' : ''}>${a.name}</option>`).join('')}</select><button class="btn primary sm" data-do-assign="${c.id}">Atribuie</button></div></td></tr>`;
+      }).join('')}</tbody></table></div>` : '<div class="card-b muted">Toți clienții sunt repartizați ✓</div>'}
+  </div>
+  <div class="card"><div class="card-h"><h3>Roluri și permisiuni</h3></div>
+    <div class="table-wrap"><table><thead><tr><th>Permisiune</th><th>Admin</th><th>Contabil</th></tr></thead><tbody>
+      ${[['Vizualizare clienți', 'Toți', 'Doar clienții proprii'], ['Editare cartelă client', '✓', '✓ (proprii)'], ['Repartizare clienți', '✓', '—'], ['Sincronizare 1C', '✓', '—'], ['Configurare notificări', 'Globale', 'Personale'], ['Onboarding client nou', '✓', '✓ (necesită aprobare)']].map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="muted">${r[2]}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+function pageNotifs() {
+  const chIcon = { app: ['bell', 'În aplicație'], email: ['mail', 'Email'], tg: ['send', 'Telegram'] };
+  const events = [['Termen raport se apropie (cu 3 zile înainte)', 1, 1, 1], ['Raport restant', 1, 1, 1], ['Restanță nouă din 1C', 1, 0, 1], ['Schimbare status transport', 1, 0, 1], ['Client nou repartizat', 1, 1, 0], ['Rezumat zilnic (08:00)', 0, 1, 1]];
+  return `
+  <div class="page-head"><div><h1>Notificări</h1><p>Email + Telegram + în aplicație</p></div><button class="btn" data-action="readall">${ic('check')}Marchează toate citite</button></div>
+  <div class="grid g-main">
+    <div class="card">${NOTIFS.map(n => `<div class="list-item" style="${n.unread ? 'background:var(--primary-soft)' : ''}">
+      <span class="ico" style="width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--${n.type}-soft);color:var(--${n.type})">${ic(n.type === 'ok' ? 'check' : n.type === 'info' ? 'info' : 'alert')}</span>
+      <div class="grow"><div class="t">${n.t}</div><div class="s">${n.s}</div></div>
+      <div style="text-align:right"><div class="muted" style="font-size:12px;margin-bottom:4px">${n.when}</div><div style="display:flex;gap:4px;justify-content:flex-end;color:var(--muted)">${n.ch.map(c => `<span title="${chIcon[c][1]}">${ic(chIcon[c][0], 14)}</span>`).join('')}</div></div>
+    </div>`).join('')}</div>
+    <div class="grid" style="align-content:start">
+      <div class="card"><div class="card-h"><h3>Canale</h3></div><div class="card-b">
+        <div class="list-item" style="padding:0 0 12px">${ic('mail')}<div class="grow"><div class="t">Email</div><div class="s">admin@birou.md</div></div><span class="badge b-ok">Activ</span></div>
+        <div class="list-item" style="padding:12px 0 0;border:0">${ic('send')}<div class="grow"><div class="t">Telegram Bot</div><div class="s">@ContaCRM_bot · conectat</div></div><span class="badge b-ok">Activ</span></div>
+      </div></div>
+      <div class="card"><div class="card-h"><h3>Reguli</h3></div>
+        <div class="table-wrap"><table><thead><tr><th>Eveniment</th><th title="În aplicație">${ic('bell', 14)}</th><th title="Email">${ic('mail', 14)}</th><th title="Telegram">${ic('send', 14)}</th></tr></thead><tbody>
+          ${events.map(e => `<tr><td style="font-size:13px">${e[0]}</td>${[1, 2, 3].map(i => `<td><label class="switch"><input type="checkbox" ${e[i] ? 'checked' : ''}><span></span></label></td>`).join('')}</tr>`).join('')}
+        </tbody></table></div></div>
+    </div>
+  </div>`;
+}
+
+function pageSync() {
+  const debts = CLIENTS.filter(c => c.debt > 0).sort((a, b) => b.debt - a.debt);
+  const days = c => 15 + (c.id * 11) % 40;
+  return `
+  <div class="page-head"><div><h1>Sincronizare 1C</h1><p>Import automat al soldurilor și detecția restanțelor</p></div>
+    <button class="btn primary" data-action="sync" ${state.syncing ? 'disabled' : ''}>${ic('sync')}${state.syncing ? 'Se sincronizează…' : 'Sincronizează acum'}</button></div>
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="card kpi"><div class="lbl">Ultima sincronizare</div><div class="val" style="font-size:22px">Azi, 06:00</div><div class="sub"><span class="badge b-ok">Reușită</span> · automat, zilnic</div></div>
+    <div class="card kpi"><div class="lbl">Total restanțe</div><div class="val" style="font-size:22px;color:var(--bad)">${mdl(debts.reduce((s, c) => s + c.debt, 0))}</div><div class="sub">${debts.length} clienți · 3 noi azi</div></div>
+    <div class="card kpi"><div class="lbl">Conexiune 1C</div><div class="val" style="font-size:22px">1C:Contabilitate 8</div><div class="sub">OData · baza „Birou_2026”</div></div>
+  </div>
+  <div class="card" id="syncBox" style="margin-bottom:16px;display:${state.syncing ? 'block' : 'none'}"><div class="card-b"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span id="syncMsg">Conectare la 1C…</span><span class="muted" id="syncPct">0%</span></div><div class="progress"><span id="syncBar"></span></div></div></div>
+  <div class="card">
+    <div class="card-h"><h3>Restanțe detectate</h3><button class="btn sm" data-action="remind-all">${ic('send', 14)}Reamintire tuturor</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Client</th><th>Contabil</th><th class="num">Sumă</th><th>Întârziere</th><th>Ultima plată</th><th></th></tr></thead><tbody>
+      ${debts.map(c => `<tr><td class="strong"><a href="#/client/${c.id}">${c.name}</a></td><td>${who(acc(c.acc))}</td><td class="num strong" style="color:var(--bad)">${mdl(c.debt)}</td>
+        <td><span class="badge ${days(c) > 30 ? 'b-bad' : 'b-warn'}">${days(c)} zile</span></td><td class="muted">${(c.id % 20) + 1} ${days(c) > 30 ? 'iul' : 'aug'} 2026</td>
+        <td><button class="btn sm" data-action="remind">${ic('send', 14)}Reamintire</button></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+}
+
+function pageOnboarding() {
+  const w = state.wiz;
+  const steps = ['Date firmă', 'Regim fiscal', 'Conturi & contacte', 'Repartizare'];
+  const head = `<div class="wizard-steps">${steps.map((s, i) => {
+    const n = i + 1, cls = n < w.step ? 'done' : n === w.step ? 'on' : '';
+    return `<div class="wstep ${cls}"><span class="n">${n < w.step ? '✓' : n}</span><span>${s}</span>${n < steps.length ? '<span class="line"></span>' : ''}</div>`;
+  }).join('')}</div>`;
+  let body = '';
+  if (w.step === 1) body = `
+    <div class="form">
+      <div class="field full"><label>IDNO</label><div style="display:flex;gap:8px"><input class="input mono" data-w="idno" value="${w.idno}" placeholder="13 cifre" maxlength="13" style="flex:1"><button class="btn" data-action="lookup">${ic('reports', 16)}Completează din registru</button></div><div class="hint">Datele se preiau automat din Registrul de stat al persoanelor juridice</div></div>
+      <div class="field full"><label>Denumire</label><input class="input" data-w="name" value="${w.name}" placeholder="ex. Print Studio SRL"></div>
+      <div class="field"><label>Formă juridică</label><select class="input" data-w="form">${['SRL', 'SA', 'ÎI', 'GȚ', 'ONG'].map(f => `<option ${w.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></div>
+      <div class="field"><label>Localitate</label><input class="input" placeholder="mun. Chișinău"></div>
+    </div>`;
+  if (w.step === 2) body = `
+    <div class="grid g2">
+      <label class="radio-card ${w.vat === true ? 'on' : ''}"><input type="radio" name="vat" data-vat="1" ${w.vat === true ? 'checked' : ''}><div><div class="strong">Plătitor de TVA</div><div class="muted" style="font-size:13px;margin:4px 0 10px">Firma este înregistrată ca plătitor de TVA</div>${VAT_R.map(r => `<span class="chip-r b-pri" style="margin-right:4px">${r}</span>`).join('')}</div></label>
+      <label class="radio-card ${w.vat === false ? 'on' : ''}"><input type="radio" name="vat" data-vat="0" ${w.vat === false ? 'checked' : ''}><div><div class="strong">Neplătitor de TVA</div><div class="muted" style="font-size:13px;margin:4px 0 10px">Firma nu este înregistrată în scopuri de TVA</div>${NOVAT_R.map(r => `<span class="chip-r b-grey" style="margin-right:4px">${r}</span>`).join('')}</div></label>
+    </div>
+    ${w.vat !== null ? `<div class="callout" style="margin-top:16px">${ic('check')}<div style="font-size:13px">Clasificare automată: clientului i se vor atribui rapoartele <b>${(w.vat ? VAT_R : NOVAT_R).join(', ')}</b>. Termenele se generează automat în calendar.</div></div>` : ''}`;
+  if (w.step === 3) body = `
+    <div class="form">
+      <div class="field"><label>Bancă</label><select class="input" data-w="bank">${['MAIB', 'Moldindconbank', 'Victoriabank', 'OTP Bank', 'FinComBank'].map(b => `<option ${w.bank === b ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
+      <div class="field"><label>IBAN</label><input class="input mono" data-w="iban" value="${w.iban}" placeholder="MD00 XX00 0000 0000 0000 0000"></div>
+      <div class="field"><label>Persoană de contact</label><input class="input" data-w="contact" value="${w.contact}" placeholder="Nume Prenume"></div>
+      <div class="field"><label>Telefon</label><input class="input" data-w="phone" value="${w.phone}" placeholder="+373 …"></div>
+      <div class="field"><label>Email</label><input class="input" data-w="email" value="${w.email}" placeholder="contact@firma.md"></div>
+      <div class="field"><label>Telegram</label><div style="display:flex;gap:8px"><input class="input" placeholder="@username" style="flex:1"><button class="btn" data-action="soon">Trimite invitație bot</button></div></div>
+    </div>`;
+  if (w.step === 4) {
+    const sug = [...ACC].sort((x, y) => CLIENTS.filter(k => k.acc === x.id).length - CLIENTS.filter(k => k.acc === y.id).length)[0];
+    if (!w.acc) w.acc = sug.id;
+    body = `
+    <div class="grid g2">
+      <div><div class="strong" style="margin-bottom:10px">Contabil responsabil</div>
+        ${ACC.map(a => `<label class="radio-card ${+w.acc === a.id ? 'on' : ''}" style="margin-bottom:8px;align-items:center"><input type="radio" name="acc" data-acc="${a.id}" ${+w.acc === a.id ? 'checked' : ''}>${avatar(a)}<div style="flex:1"><div class="strong">${a.name}</div><div class="muted" style="font-size:12px">${CLIENTS.filter(c => c.acc === a.id).length} clienți</div></div>${a.id === sug.id ? '<span class="badge plain b-ok">Recomandat</span>' : ''}</label>`).join('')}
+      </div>
+      <div class="card" style="box-shadow:none;background:var(--surface-2)"><div class="card-b"><div class="strong" style="margin-bottom:12px">Rezumat</div>
+        <dl class="dl" style="grid-template-columns:120px 1fr;font-size:13px">
+          <dt>Denumire</dt><dd>${w.name || '—'}</dd><dt>IDNO</dt><dd class="mono">${w.idno || '—'}</dd><dt>Formă</dt><dd>${w.form}</dd>
+          <dt>Regim</dt><dd>${w.vat === null ? '—' : w.vat ? 'Plătitor TVA' : 'Non-TVA'}</dd>
+          <dt>Rapoarte</dt><dd>${w.vat === null ? '—' : (w.vat ? VAT_R : NOVAT_R).join(', ')}</dd>
+          <dt>Bancă</dt><dd>${w.bank}</dd><dt>Contact</dt><dd>${w.contact || '—'}</dd>
+        </dl></div></div>
+    </div>`;
+  }
+  return `
+  <div class="page-head"><div><h1>Client nou</h1><p>Onboarding în 4 pași</p></div></div>
+  <div class="card">${head}<div class="card-b" style="padding:24px">${body}</div>
+    <div class="card-h" style="border-top:1px solid var(--border);border-bottom:0">
+      <button class="btn" data-action="wprev" ${w.step === 1 ? 'style="visibility:hidden"' : ''}>${ic('back', 16)}Înapoi</button>
+      <button class="btn primary" data-action="wnext">${w.step === 4 ? 'Finalizează' : 'Continuă'} ${w.step === 4 ? ic('check', 16) : ic('arrow', 16)}</button>
+    </div></div>`;
+}
+
+/* ---------- Router ---------- */
+function render() {
+  const path = location.hash.slice(1) || '/';
+  if (state.role === 'contabil' && (path === '/echipa' || path === '/sync')) { location.hash = '#/'; return; }
+  renderNav(path);
+  let html;
+  if (path === '/') html = pageDashboard();
+  else if (path === '/clienti') html = pageClients();
+  else if (path.startsWith('/client/')) html = pageClient(path.split('/')[2]);
+  else if (path === '/rapoarte') html = pageReports();
+  else if (path === '/transport') html = pageTransport();
+  else if (path === '/echipa') html = pageTeam();
+  else if (path === '/notificari') html = pageNotifs();
+  else if (path === '/sync') html = pageSync();
+  else if (path === '/onboarding') html = pageOnboarding();
+  else html = pageDashboard();
+  $('#view').innerHTML = html;
+  $('#sidebar').classList.remove('open');
+}
+window.addEventListener('hashchange', () => { state.clientTab = 'legal'; render(); window.scrollTo(0, 0); });
+
+/* ---------- Events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-action],[data-role],[data-cf],[data-rv],[data-tab],[data-go],[data-do-assign],[data-vat],[data-acc]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.role) { state.role = d.role; render(); toast(d.role === 'admin' ? 'Vizualizare ca Admin' : 'Vizualizare ca Contabil (Ana Rusu)'); return; }
+  if (d.cf) { state.clientFilter = d.cf; render(); return; }
+  if (d.rv) { state.reportView = d.rv; render(); return; }
+  if (d.tab) { state.clientTab = d.tab; render(); return; }
+  if (d.go && !e.target.closest('a')) { location.hash = d.go; return; }
+  if (d.doAssign) {
+    const c = client(+d.doAssign), sel = document.querySelector(`[data-assign="${d.doAssign}"]`);
+    c.acc = +sel.value; c.status = 'activ'; render(); toast(`${c.name} → ${acc(c.acc).name}. Notificare trimisă.`); return;
+  }
+  if (d.vat !== undefined) { state.wiz.vat = d.vat === '1'; render(); return; }
+  if (d.acc) { state.wiz.acc = +d.acc; render(); return; }
+  switch (d.action) {
+    case 'menu': $('#sidebar').classList.toggle('open'); break;
+    case 'theme': {
+      const r = document.documentElement;
+      const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      r.dataset.theme = dark ? 'light' : 'dark'; break;
+    }
+    case 'soon': toast('Funcționalitate disponibilă în versiunea completă'); break;
+    case 'export': toast('Export Excel generat (demo)'); break;
+    case 'remind': toast('Reamintire trimisă pe email și Telegram'); break;
+    case 'remind-all': toast('Reamintiri trimise tuturor clienților cu restanțe'); break;
+    case 'readall': NOTIFS.forEach(n => n.unread = false); render(); break;
+    case 'lookup': Object.assign(state.wiz, { idno: state.wiz.idno || '1022600022334', name: 'Print Studio SRL', form: 'SRL' }); render(); toast('Date preluate din registru'); break;
+    case 'wprev': state.wiz.step--; render(); break;
+    case 'wnext':
+      if (state.wiz.step === 2 && state.wiz.vat === null) { toast('Alege regimul fiscal'); break; }
+      if (state.wiz.step < 4) { state.wiz.step++; render(); break; }
+      toast(`Client creat și repartizat către ${acc(+state.wiz.acc).name}`);
+      state.wiz = { step: 1, idno: '', name: '', form: 'SRL', vat: null, iban: '', bank: 'MAIB', contact: '', phone: '', email: '', acc: '' };
+      location.hash = '#/clienti'; break;
+    case 'sync': runSync(); break;
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'cq') {
+    state.clientQuery = e.target.value;
+    const pos = e.target.selectionStart; render();
+    const el = $('#cq'); el.focus(); el.setSelectionRange(pos, pos);
+  }
+  if (e.target.dataset.w) state.wiz[e.target.dataset.w] = e.target.value;
+});
+function runSync() {
+  state.syncing = true; render();
+  const msgs = ['Conectare la 1C…', 'Import solduri clienți…', 'Comparare cu facturile emise…', 'Detecție restanțe…', 'Finalizat'];
+  let p = 0;
+  const iv = setInterval(() => {
+    p += 20;
+    $('#syncBar').style.width = p + '%'; $('#syncPct').textContent = p + '%'; $('#syncMsg').textContent = msgs[p / 20] ?? msgs[4];
+    if (p >= 100) { clearInterval(iv); setTimeout(() => { state.syncing = false; render(); toast('Sincronizare reușită · 142 clienți actualizați'); }, 500); }
+  }, 600);
+}
+
+render();
+</script>
+</body>
+</html>
