@@ -126,7 +126,7 @@ tbody tr.link { cursor: pointer; }
 tbody tr.link:hover td { background: var(--surface-2); }
 .table-wrap { overflow-x: auto; }
 .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .muted { color: var(--muted); }
 .strong { font-weight: 600; }
 
@@ -424,7 +424,6 @@ const NAV = [
   { href: '#/', label: 'Panou', icon: 'home' },
   { href: '#/clienti', label: 'Clienți', icon: 'clients' },
   { href: '#/rapoarte', label: 'Rapoarte', icon: 'reports', count: () => visibleClients().reduce((n, c) => n + reportsFor(c).filter(r => repStatus(c, r) === 'restant').length, 0) },
-  { href: '#/auto', label: 'Parc auto', icon: 'truck', count: () => visibleVehicles().filter(v => reading(v, 'aug').status === 'intarziat').length },
   { href: '#/notificari', label: 'Notificări', icon: 'bell', count: () => NOTIFS.filter(n => n.unread).length },
   { group: 'Administrare', admin: true },
   { href: '#/echipa', label: 'Distribuție clienți', icon: 'team', admin: true },
@@ -457,7 +456,7 @@ function pageDashboard() {
   const done = allReps.length - pending.length;
   const pct = Math.round(done / allReps.length * 100);
 
-  const kpi = (lbl, val, sub, icon, tone) => `<div class="card kpi"><div class="lbl">${lbl}<span class="ico" style="background:var(--${tone}-soft);color:var(--${tone})">${ic(icon)}</span></div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+  const kpi = (lbl, val, sub, icon, tone, attr = '') => `<div class="card kpi" ${attr}><div class="lbl">${lbl}<span class="ico" style="background:var(--${tone}-soft);color:var(--${tone})">${ic(icon)}</span></div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
 
   const workload = ACC.map(a => {
     const n = CLIENTS.filter(c => c.acc === a.id).length;
@@ -471,7 +470,7 @@ function pageDashboard() {
     ${kpi(state.role === 'admin' ? 'Clienți activi' : 'Clienții mei', cl.filter(c => c.status === 'activ').length, `${cl.filter(c => c.vat).length} plătitori TVA · ${cl.filter(c => !c.vat).length} non-TVA`, 'clients', 'primary')}
     ${kpi('Rapoarte de depus', pending.length, `${late.length} restante · termen în 2 zile`, 'reports', 'warn')}
     ${kpi('Restanțe 1C', mdl(debts.reduce((s, c) => s + c.debt, 0)), `${debts.length} clienți cu datorii`, 'coin', 'bad')}
-    ${kpi('Kilometraj de primit', kmMissing, `${vs.length} automobile · termen 30.09${kmLate ? ` · ${kmLate} lipsă din august` : ''}`, 'truck', 'info')}
+    ${kpi('Kilometraj de primit', kmMissing, `${vs.length} automobile · termen 30.09${kmLate ? ` · ${kmLate} lipsă din august` : ''}`, 'truck', 'info', 'data-kmgo="1" style="cursor:pointer"')}
   </div>
   <div class="grid g-main">
     <div class="grid" style="align-content:start">
@@ -513,6 +512,7 @@ function pageClients() {
   if (state.clientFilter === 'vat') cl = cl.filter(c => c.vat);
   if (state.clientFilter === 'novat') cl = cl.filter(c => !c.vat);
   if (state.clientFilter === 'debt') cl = cl.filter(c => c.debt > 0);
+  if (state.clientFilter === 'km') cl = cl.filter(c => kmState(c).late || kmState(c).waiting);
   const q = state.clientQuery.toLowerCase();
   if (q) cl = cl.filter(c => c.name.toLowerCase().includes(q) || c.idno.includes(q));
   const seg = (k, l) => `<button data-cf="${k}" class="${state.clientFilter === k ? 'on' : ''}">${l}</button>`;
@@ -522,10 +522,10 @@ function pageClients() {
   <div class="card">
     <div class="toolbar">
       <input class="input" id="cq" placeholder="Caută după nume sau IDNO" value="${state.clientQuery}" style="min-width:240px">
-      <div class="seg">${seg('all', 'Toți')}${seg('vat', 'Plătitori TVA')}${seg('novat', 'Non-TVA')}${seg('debt', 'Cu restanțe')}</div>
+      <div class="seg">${seg('all', 'Toți')}${seg('vat', 'Plătitori TVA')}${seg('novat', 'Non-TVA')}${seg('debt', 'Cu restanțe')}${seg('km', 'Kilometraj de primit')}</div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Denumire</th><th>IDNO</th><th>Regim</th><th>Rapoarte</th><th>Contabil</th><th>Localitate</th><th class="num">Restanță 1C</th><th>Status</th></tr></thead>
+      <thead><tr><th>Denumire</th><th>IDNO</th><th>Regim</th><th>Rapoarte</th><th>Contabil</th><th>Parc auto</th><th class="num">Restanță 1C</th><th>Status</th></tr></thead>
       <tbody>${cl.map(c => `
         <tr class="link" data-go="#/client/${c.id}">
           <td class="strong">${c.name}</td>
@@ -533,7 +533,7 @@ function pageClients() {
           <td>${vatBadge(c)}</td>
           <td>${reportsFor(c).map(r => `<span class="chip-r ${RSTAT[repStatus(c, r)].cls}" title="${RSTAT[repStatus(c, r)].label}" style="margin-right:4px">${r}</span>`).join('')}</td>
           <td>${who(acc(c.acc))}</td>
-          <td class="muted">${c.city}</td>
+          <td style="white-space:nowrap">${(k => !k.cars ? '<span class="muted">—</span>' : `${ic('truck', 15)} ${k.cars}${k.late ? ` <span class="badge b-bad">${k.late} lipsă</span>` : k.waiting ? ` <span class="badge b-grey">${k.waiting} de primit</span>` : ''}`)(kmState(c))}</td>
           <td class="num ${c.debt ? '' : 'muted'}" style="${c.debt ? 'color:var(--bad);font-weight:600' : ''}">${c.debt ? mdl(c.debt) : '—'}</td>
           <td>${c.status === 'activ' ? '<span class="badge b-ok">Activ</span>' : '<span class="badge b-info">Onboarding</span>'}</td>
         </tr>`).join('') || `<tr><td colspan="8" class="muted" style="text-align:center;padding:40px">Niciun client găsit</td></tr>`}
@@ -587,13 +587,7 @@ function pageClient(id) {
       <div class="tl"><div>Client repartizat către ${a?.name ?? '—'}</div><div class="s">3 mar 2023 · Admin</div></div>
     </div>`;
 
-  if (state.clientTab === 'auto') {
-    const vs = VEHICLES.filter(v => v.client === c.id);
-    body = vs.length ? `<div class="table-wrap"><table><thead><tr><th>Automobil</th><th>Șofer</th><th>Combustibil · normă</th><th>August</th><th>Septembrie</th><th></th></tr></thead><tbody>
-      ${vs.map(v => `<tr><td style="white-space:nowrap"><div class="plate">${v.plate}</div><div class="muted" style="font-size:12px;margin-top:4px">${v.model}</div></td><td>${v.driver}</td><td>${v.fuel} · ${v.norm} l/100 km</td>
-        <td>${badge(reading(v, 'aug').status, FSTAT)}</td><td>${badge(reading(v, 'sep').status, FSTAT)}</td><td><a class="btn sm" href="#/auto">Deschide</a></td></tr>`).join('')}
-    </tbody></table></div>` : `<div class="muted" style="text-align:center;padding:30px">Clientul nu are automobile în evidență.<br><br><button class="btn" data-action="soon">${ic('plus')}Adaugă automobil</button></div>`;
-  }
+  if (state.clientTab === 'auto') body = fleetSection(c);
 
   return `
   <div class="crumbs"><a href="#/clienti">Clienți</a> / ${c.name}</div>
@@ -605,10 +599,10 @@ function pageClient(id) {
       <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">Contabil responsabil</div>${who(a)}</div>
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">Restanță 1C</div><div class="strong" style="color:${c.debt ? 'var(--bad)' : 'var(--ok)'}">${c.debt ? mdl(c.debt) : 'Achitat'}</div></div>
-        <button class="btn" data-tab="auto">${ic('truck')}Automobile (${VEHICLES.filter(v => v.client === c.id).length})</button>
+        <button class="btn" data-tab="auto">${ic('truck')}Parc auto (${kmState(c).cars})</button>
       </div>
     </div>
-    <div class="tabs">${tab('legal', 'Date legale')}${tab('bank', 'Conturi bancare')}${tab('contacts', 'Contacte')}${tab('reports', 'Rapoarte')}${tab('auto', 'Automobile')}${tab('history', 'Istoric')}</div>
+    <div class="tabs">${tab('legal', 'Date legale')}${tab('bank', 'Conturi bancare')}${tab('contacts', 'Contacte')}${tab('reports', 'Rapoarte')}${tab('auto', `Parc auto${kmState(c).late ? ` <span class="badge plain b-bad" style="margin-left:4px">${kmState(c).late}</span>` : ''}`)}${tab('history', 'Istoric')}</div>
     <div class="card-b" style="padding:20px">${body}</div>
   </div>`;
 }
@@ -644,59 +638,55 @@ function fleetAction(v, x) {
   return `<button class="btn sm" data-input="${v.id}">Introdu manual</button>`;
 }
 
-function pageFleet() {
+/* Parc auto — secțiune în cartela clientului */
+const kmState = c => {
+  const vs = VEHICLES.filter(v => v.client === c.id);
+  return { cars: vs.length, late: vs.filter(v => reading(v, 'aug').status === 'intarziat').length, waiting: vs.filter(v => reading(v, 'sep').status === 'asteptam').length };
+};
+
+function fleetSection(c) {
   const m = state.fleetMonth, M = MONTHS[m];
-  const vs = visibleVehicles();
+  const vs = VEHICLES.filter(v => v.client === c.id);
+  if (!vs.length) return `<div class="muted" style="text-align:center;padding:40px 20px">${ic('truck', 32)}<div style="margin:12px 0 16px">Clientul nu are automobile în evidență.</div><button class="btn primary" data-action="soon">${ic('plus')}Adaugă automobil</button></div>`;
   const rows = vs.map(v => ({ v, x: reading(v, m) }));
   const cnt = s => rows.filter(r => r.x.status === s).length;
-  const shown = state.fleetFilter === 'all' ? rows : rows.filter(r => r.x.status === state.fleetFilter);
   const seg = (k, l) => `<button data-fm="${k}" class="${m === k ? 'on' : ''}">${l}</button>`;
-  const fseg = (k, l) => `<button data-ff="${k}" class="${state.fleetFilter === k ? 'on' : ''}">${l}</button>`;
-  const kpi = (lbl, val, sub, tone) => `<div class="card kpi"><div class="lbl">${lbl}</div><div class="val" style="${tone ? `color:var(--${tone})` : ''}">${val}</div><div class="sub">${sub}</div></div>`;
-  const missing = cnt('asteptam') + cnt('intarziat');
-  const demo = VEHICLES[5], demoStart = reading(demo, 'aug').start;
+  const demo = rows.find(r => r.x.status === 'intarziat')?.v ?? vs[0];
+  const demoStart = reading(demo, 'aug').start, demoEnd = reading(demo, 'aug').end ?? demoStart + 1640;
+  const late = rows.filter(r => r.x.status === 'intarziat');
   return `
-  <div class="page-head"><div><h1>Parc auto &amp; foi de parcurs</h1><p>Automobilele clienților în evidență · date la odometru lunar · foi de parcurs generate automat</p></div>
-    <button class="btn primary" data-action="soon">${ic('plus')}Adaugă automobil</button></div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
-    <div class="seg">${seg('sep', 'Septembrie 2026 · în curs')}${seg('aug', 'August 2026')}</div>
-    <span class="muted" style="font-size:13px">${M.closed ? `Termen expirat la ${M.deadline}` : `Termen: <b>${M.deadline}</b> (ultima zi a lunii) · mai sunt 7 zile`}</span>
+    <div class="seg">${seg('sep', 'Septembrie 2026')}${seg('aug', 'August 2026')}</div>
+    <span class="muted" style="font-size:13px">${M.closed ? `Termen expirat la ${M.deadline}` : `Termen: <b>${M.deadline}</b> · mai sunt 7 zile`}</span>
+    <div style="flex:1"></div>
+    ${cnt('primit') ? `<button class="btn sm primary" data-action="gen-all">${ic('reports', 14)}Generează foile (${cnt('primit')})</button>` : ''}
+    <button class="btn sm" data-action="soon">${ic('plus', 14)}Adaugă automobil</button>
   </div>
-  <div class="grid g4" style="margin-bottom:16px">
-    ${kpi('Automobile în evidență', vs.length, `${new Set(vs.map(v => v.client)).size} clienți`)}
-    ${kpi('Date primite', `${cnt('primit') + cnt('foaie')} / ${vs.length}`, 'odometru transmis de client')}
-    ${kpi(M.closed ? 'Lipsă după termen' : 'Încă de primit', missing, M.closed ? 'notificați pe Telegram' : `notificare Telegram automată la ${M.deadline}, 18:00`, missing && M.closed ? 'bad' : '')}
-    ${kpi('Foi de parcurs', cnt('foaie'), cnt('primit') ? `${cnt('primit')} gata de generat` : 'toate generate', 'ok')}
-  </div>
-  <div class="card" style="margin-bottom:16px">
-    <div class="toolbar"><div class="seg">${fseg('all', 'Toate')}${fseg('asteptam', 'Așteptăm')}${fseg('intarziat', 'Lipsă')}${fseg('primit', 'De generat')}${fseg('foaie', 'Generate')}</div>
-      <div style="flex:1"></div>${cnt('primit') ? `<button class="btn sm primary" data-action="gen-all">${ic('reports', 14)}Generează toate (${cnt('primit')})</button>` : ''}</div>
-    <div class="table-wrap"><table><thead><tr><th>Automobil</th><th>Client</th><th class="num">Odometru început</th><th class="num">Odometru sfârșit</th><th class="num">Km parcurși</th><th class="num">Consum normat</th><th>Primit</th><th>Status</th><th></th></tr></thead><tbody>
-      ${shown.map(({ v, x }) => `<tr>
-        <td style="white-space:nowrap"><div class="plate">${v.plate}</div><div class="muted" style="font-size:12px;margin-top:4px">${v.model}</div></td>
-        <td style="white-space:nowrap"><a href="#/client/${v.client}">${client(v.client).name}</a><div class="muted" style="font-size:12px">${v.driver}</div></td>
-        <td class="num mono">${km(x.start)}</td>
-        <td class="num mono">${x.end ? km(x.end) : '<span class="muted">—</span>'}</td>
-        <td class="num mono strong">${x.km ? km(x.km) : '<span class="muted">—</span>'}</td>
-        <td class="num mono">${x.fuelL ? x.fuelL + ' l' : '<span class="muted">—</span>'}</td>
-        <td style="font-size:12px;white-space:nowrap">${x.r && !x.r.late ? `${x.r.date}<div class="muted">${x.r.via}</div>` : x.r?.late ? `<span style="color:var(--bad)">nu a transmis</span><div class="muted">notificat ${x.r.notified.length}×</div>` : '<span class="muted">—</span>'}</td>
-        <td>${badge(x.status, FSTAT)}</td>
-        <td>${fleetAction(v, x)}</td>
-      </tr>`).join('') || '<tr><td colspan="9" class="muted" style="text-align:center;padding:30px">Nimic de afișat</td></tr>'}
-    </tbody></table></div>
-  </div>
+  ${late.length ? `<div class="callout" style="background:var(--bad-soft);margin-bottom:16px">${ic('alert')}<div style="font-size:13px"><b>${late.length} ${late.length === 1 ? 'automobil' : 'automobile'} fără date la odometru</b> după termen. Clientul a fost notificat pe Telegram (${late[0].x.r.notified.join('; ')}).</div></div>`
+    : !M.closed && cnt('asteptam') ? `<div class="callout" style="margin-bottom:16px">${ic('clock')}<div style="font-size:13px">Dacă datele nu vin până la <b>${M.deadline}, 18:00</b>, clientul primește automat o notificare pe Telegram.</div></div>` : ''}
+  <div class="card" style="box-shadow:none;margin-bottom:16px"><div class="table-wrap"><table><thead><tr><th>Automobil</th><th>Șofer</th><th>Normă</th><th class="num">Odometru început</th><th class="num">Odometru sfârșit</th><th class="num">Km</th><th class="num">Consum</th><th>Primit</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.map(({ v, x }) => `<tr>
+      <td style="white-space:nowrap"><div class="plate">${v.plate}</div><div class="muted" style="font-size:12px;margin-top:4px">${v.model} · ${v.fuel}</div></td>
+      <td style="white-space:nowrap">${v.driver}</td>
+      <td class="mono" style="white-space:nowrap">${v.norm} l/100</td>
+      <td class="num mono">${km(x.start)}</td>
+      <td class="num mono">${x.end ? km(x.end) : '<span class="muted">—</span>'}</td>
+      <td class="num mono strong">${x.km ? km(x.km) : '<span class="muted">—</span>'}</td>
+      <td class="num mono" style="white-space:nowrap">${x.fuelL ? x.fuelL + ' l' : '<span class="muted">—</span>'}</td>
+      <td style="font-size:12px;white-space:nowrap">${x.r && !x.r.late ? `${x.r.date}<div class="muted">${x.r.via}</div>` : x.r?.late ? `<span style="color:var(--bad)">nu a transmis</span><div class="muted">notificat ${x.r.notified.length}×</div>` : '<span class="muted">—</span>'}</td>
+      <td>${badge(x.status, FSTAT)}</td>
+      <td>${fleetAction(v, x)}</td>
+    </tr>`).join('')}
+  </tbody></table></div></div>
   <div class="grid g2">
-    <div class="card"><div class="card-h"><h3>Cum funcționează</h3></div><div class="card-b"><div class="timeline">
-      <div class="tl"><div class="strong">1. Automobilul este luat la evidență</div><div class="s">Nr. înmatriculare, model, combustibil, normă de consum, șofer</div></div>
-      <div class="tl"><div class="strong">2. La sfârșitul lunii clientul transmite odometrul</div><div class="s">Direct în botul Telegram, pe email sau introdus manual de contabil</div></div>
-      <div class="tl"><div class="strong">3. Nu a transmis până în ultima zi a lunii → notificare Telegram</div><div class="s">Automat, la 18:00; se repetă după 3 zile dacă datele tot lipsesc</div></div>
-      <div class="tl" style="padding-bottom:0"><div class="strong">4. Se generează foaia de parcurs</div><div class="s">Km parcurși = odometru sfârșit − început; consum = km × normă / 100</div></div>
-    </div></div></div>
-    <div class="card"><div class="card-h"><h3>Conversația pe Telegram</h3><span class="muted" style="font-size:12px">@ContaCRM_bot</span></div><div class="card-b tg">
+    <div class="card" style="box-shadow:none"><div class="card-h"><h3>Foi de parcurs emise</h3></div>
+      ${['sep', 'aug'].flatMap(mm => vs.map(v => ({ v, mm, x: reading(v, mm) }))).filter(o => o.x.status === 'foaie').map(o => `<div class="list-item">${ic('reports')}<div class="grow"><div class="t mono">${o.x.r.wb}</div><div class="s">${o.v.plate} · ${MONTHS[o.mm].label} · ${km(o.x.km)} km · ${o.x.fuelL} l</div></div><button class="btn sm" data-wb="${o.v.id}" data-wbm="${o.mm}">Deschide</button></div>`).join('') || '<div class="card-b muted">Nicio foaie emisă încă</div>'}
+    </div>
+    <div class="card" style="box-shadow:none"><div class="card-h"><h3>Telegram</h3><span class="muted" style="font-size:12px">@ContaCRM_bot · ${c.name}</span></div><div class="card-b tg">
       <div class="bubble bot">🚗 Bună ziua! Luna <b>august</b> s-a încheiat. Vă rugăm să transmiteți indicațiile odometrului pentru <b>${demo.plate}</b> (${demo.model}).<br><br>Ultima valoare: <b>${km(demoStart)} km</b><div class="time">31.08, 18:00</div></div>
       <div class="bubble bot">⏰ Reamintire: încă nu am primit kilometrajul pentru <b>${demo.plate}</b>. Fără el nu putem întocmi foaia de parcurs.<div class="time">03.09, 10:00</div></div>
-      <div class="bubble me">${km(demoStart + 1640)}<div class="time">03.09, 10:12</div></div>
-      <div class="bubble bot">✅ Mulțumim! Am înregistrat ${km(demoStart + 1640)} km (1 640 km parcurși în august). Foaia de parcurs va fi întocmită de contabil.<div class="time">03.09, 10:12</div></div>
+      ${late.length ? '' : `<div class="bubble me">${km(demoEnd)}<div class="time">03.09, 10:12</div></div>
+      <div class="bubble bot">✅ Mulțumim! Am înregistrat ${km(demoEnd)} km. Foaia de parcurs va fi întocmită de contabil.<div class="time">03.09, 10:12</div></div>`}
     </div></div>
   </div>`;
 }
@@ -704,7 +694,7 @@ function pageFleet() {
 function modalHtml() {
   const md = state.modal;
   if (!md) return '';
-  const v = VEHICLES.find(x => x.id === md.vid), c = client(v.client), m = state.fleetMonth, M = MONTHS[m], x = reading(v, m);
+  const v = VEHICLES.find(x => x.id === md.vid), c = client(v.client), m = md.m ?? state.fleetMonth, M = MONTHS[m], x = reading(v, m);
   let inner = '';
   if (md.type === 'input') inner = `
     <div class="card-h"><h3>Date odometru — ${v.plate}</h3><button class="icon-btn" data-action="close" aria-label="Închide">✕</button></div>
@@ -886,7 +876,6 @@ function render() {
   else if (path === '/clienti') html = pageClients();
   else if (path.startsWith('/client/')) html = pageClient(path.split('/')[2]);
   else if (path === '/rapoarte') html = pageReports();
-  else if (path === '/auto') html = pageFleet();
   else if (path === '/echipa') html = pageTeam();
   else if (path === '/notificari') html = pageNotifs();
   else if (path === '/sync') html = pageSync();
@@ -899,7 +888,7 @@ window.addEventListener('hashchange', () => { state.clientTab = 'legal'; state.m
 
 /* ---------- Events ---------- */
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-action],[data-role],[data-cf],[data-rv],[data-tab],[data-go],[data-do-assign],[data-vat],[data-acc],[data-fm],[data-ff],[data-wb],[data-gen],[data-input],[data-remind-v],[data-save]');
+  const t = e.target.closest('[data-action],[data-role],[data-cf],[data-rv],[data-tab],[data-go],[data-do-assign],[data-vat],[data-acc],[data-fm],[data-ff],[data-wb],[data-gen],[data-input],[data-remind-v],[data-save],[data-kmgo]');
   if (!t) return;
   const d = t.dataset;
   if (d.role) { state.role = d.role; render(); toast(d.role === 'admin' ? 'Vizualizare ca Admin' : 'Vizualizare ca Contabil (Ana Rusu)'); return; }
@@ -908,7 +897,8 @@ document.addEventListener('click', e => {
   if (d.tab) { state.clientTab = d.tab; render(); return; }
   if (d.fm) { state.fleetMonth = d.fm; state.fleetFilter = 'all'; render(); return; }
   if (d.ff) { state.fleetFilter = d.ff; render(); return; }
-  if (d.wb) { state.modal = { type: 'wb', vid: +d.wb }; render(); return; }
+  if (d.wb) { state.modal = { type: 'wb', vid: +d.wb, m: d.wbm }; render(); return; }
+  if (d.kmgo) { state.clientFilter = 'km'; location.hash = '#/clienti'; return; }
   if (d.input) { state.modal = { type: 'input', vid: +d.input }; render(); $('#odoEnd').focus(); return; }
   if (d.gen) { generateWb(+d.gen); state.modal = { type: 'wb', vid: +d.gen }; render(); toast('Foaie de parcurs generată'); return; }
   if (d.remindV) { const v = VEHICLES.find(x => x.id === +d.remindV); READINGS[state.fleetMonth][v.id].notified.push('23.09 · Telegram (manual)'); render(); toast(`Reamintire Telegram trimisă — ${client(v.client).name}, ${v.plate}`); return; }
