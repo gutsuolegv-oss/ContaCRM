@@ -5,7 +5,7 @@ CRM pentru firme de contabilitate din Moldova.
 ## Funcționalități
 - Clasificarea rapoartelor (plătitori TVA → R1, R2, R3 | non-plătitori → R4, R5, R6)
 - Cartele client (date legale, conturi bancare, contacte)
-- Transport tracking cu notificări
+- Parc auto: evidența automobilelor clienților, colectarea lunară a datelor la odometru (reamintire pe Telegram dacă lipsesc la sfârșitul lunii) și generarea foilor de parcurs
 - Distribuția clienților pe contabili (RBAC: Admin, Contabil)
 - Notificări email + Telegram
 - Onboarding wizard

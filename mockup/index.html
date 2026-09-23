@@ -162,15 +162,6 @@ tbody tr.link:hover td { background: var(--surface-2); }
 .matrix th { text-align: center; }
 .matrix .na { color: var(--border); }
 
-.kanban { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 16px; overflow-x: auto; }
-.col { background: var(--surface-2); border-radius: var(--radius); padding: 10px; min-height: 300px; }
-.col-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 10px; font-weight: 600; }
-.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.tcard .t { font-weight: 600; margin-bottom: 4px; }
-.tcard .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
-.steps-mini { display: flex; gap: 4px; margin-top: 10px; }
-.steps-mini span { flex: 1; height: 4px; border-radius: 99px; background: var(--border); }
-.steps-mini span.on { background: var(--primary); }
 
 .switch { position: relative; width: 36px; height: 20px; display: inline-block; }
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -214,6 +205,16 @@ tbody tr.link:hover td { background: var(--surface-2); }
 .progress span { display: block; height: 100%; background: var(--primary); width: 0; transition: width .3s; }
 
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+
+.plate { display: inline-block; font-family: ui-monospace, Consolas, monospace; font-weight: 700; font-size: 12px; letter-spacing: .04em; border: 1.5px solid var(--text); border-radius: 4px; padding: 1px 6px; background: var(--surface); white-space: nowrap; }
+.tg { background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; border-radius: 0 0 var(--radius) var(--radius); }
+.bubble { max-width: 85%; padding: 8px 12px 6px; border-radius: 12px; font-size: 13px; line-height: 1.45; }
+.bubble.bot { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; align-self: flex-start; }
+.bubble.me { background: var(--primary); color: var(--primary-text); border-bottom-right-radius: 4px; align-self: flex-end; font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+.bubble .time { font-size: 10px; opacity: .6; text-align: right; margin-top: 2px; font-family: Inter, sans-serif; font-weight: 400; }
+.overlay { position: fixed; inset: 0; background: rgba(15,17,21,.45); display: grid; place-items: center; padding: 16px; z-index: 40; }
+.modal { width: 100%; max-width: 620px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.waybill { border: 1px dashed var(--border); border-radius: 8px; padding: 20px; }
 
 /* Responsive */
 @media (max-width: 1100px) {
@@ -326,26 +327,59 @@ function repStatus(c, r, period = 0) {
   return h < 5 ? 'depus' : h < 7 ? 'lucru' : h < 9 ? 'todo' : 'restant';
 }
 
-const TRANSPORT = [
-  { id: 'T-1042', client: 2, type: 'Ridicare documente primare', courier: 'Sergiu B.', date: '23 sep, 10:00', status: 'drum', step: 2 },
-  { id: 'T-1043', client: 12, type: 'Ridicare facturi august', courier: 'Sergiu B.', date: '23 sep, 14:30', status: 'programat', step: 1 },
-  { id: 'T-1044', client: 6, type: 'Livrare rapoarte semnate', courier: 'Andrei M.', date: '24 sep, 09:00', status: 'programat', step: 1 },
-  { id: 'T-1039', client: 1, type: 'Ridicare extrase bancare', courier: 'Andrei M.', date: '22 sep, 11:00', status: 'livrat', step: 4 },
-  { id: 'T-1040', client: 9, type: 'Livrare contracte', courier: 'Sergiu B.', date: '22 sep, 15:00', status: 'livrat', step: 4 },
-  { id: 'T-1041', client: 4, type: 'Ridicare documente primare', courier: 'Andrei M.', date: '23 sep, 09:30', status: 'problema', step: 2, note: 'Clientul nu a fost la oficiu' },
-  { id: 'T-1045', client: 7, type: 'Ridicare acte de achiziție', courier: 'Sergiu B.', date: '23 sep, 16:00', status: 'drum', step: 3 },
-];
-const TSTAT = {
-  programat: { label: 'Programat', cls: 'b-grey' },
-  drum:      { label: 'În drum',   cls: 'b-info' },
-  livrat:    { label: 'Livrat',    cls: 'b-ok' },
-  problema:  { label: 'Problemă',  cls: 'b-bad' },
+/* Parc auto: automobilele clienților luate la evidență */
+const VEHICLES = [
+  [1, 1, 'BLA 482', 'Toyota Hilux', 'Motorină', 9.8, 'Ion Rotaru'],
+  [2, 1, 'BLA 915', 'Dacia Logan', 'Benzină', 7.2, 'Ion Rotaru'],
+  [3, 2, 'CAU 301', 'Mercedes-Benz Sprinter', 'Motorină', 11.5, 'Vasile Munteanu'],
+  [4, 2, 'CAU 302', 'Škoda Superb', 'Benzină', 7.8, 'Elena Cazacu'],
+  [5, 4, 'CDK 540', 'Škoda Octavia', 'Benzină', 6.9, 'Elena Cazacu'],
+  [6, 6, 'CHL 218', 'Renault Kangoo', 'Motorină', 7.5, 'Vasile Munteanu'],
+  [7, 7, 'CBR 663', 'Ford Transit', 'Motorină', 12.0, 'Ion Rotaru'],
+  [8, 7, 'CBR 664', 'Volkswagen Tiguan', 'Benzină', 8.4, 'Petru Moraru'],
+  [9, 9, 'CMT 120', 'Volvo FH 460', 'Motorină', 32.0, 'Serghei Gaidarji'],
+  [10, 9, 'CMT 121', 'Volvo FH 460', 'Motorină', 32.0, 'Nicolai Topal'],
+  [11, 12, 'EDN 305', 'Toyota RAV4', 'Hibrid', 5.6, 'Elena Cazacu'],
+  [12, 14, 'CRL 422', 'Iveco Daily', 'Motorină', 10.8, 'Petru Moraru'],
+  [13, 3, 'ORH 019', 'Dacia Duster', 'Motorină', 6.4, 'Petru Moraru'],
+].map(([id, client, plate, model, fuel, norm, driver]) => ({ id, client, plate, model, fuel, norm, driver }));
+
+const MONTHS = {
+  sep: { label: 'Septembrie 2026', idx: 9, from: '01.09.2026', to: '30.09.2026', deadline: '30.09', closed: false },
+  aug: { label: 'August 2026', idx: 8, from: '01.08.2026', to: '31.08.2026', deadline: '31.08', closed: true },
+};
+/* Date odometru primite: { via, date, wb (nr. foaie de parcurs) } | { late, notified[] } */
+const READINGS = { aug: {}, sep: {} };
+VEHICLES.forEach(v => {
+  if (v.id === 6 || v.id === 13) READINGS.aug[v.id] = { late: true, notified: ['31.08, 18:00 · Telegram', '03.09, 10:00 · Telegram (repetat)'] };
+  else READINGS.aug[v.id] = { via: v.id % 3 === 0 ? 'Email' : 'Telegram', date: `${26 + v.id % 5}.08`, wb: [5, 9].includes(v.id) ? null : `FP-2026-08-${String(v.id).padStart(3, '0')}` };
+});
+READINGS.sep[1] = { via: 'Telegram', date: '22.09', wb: null };
+READINGS.sep[12] = { via: 'Telegram', date: '23.09', wb: null };
+let wbCounter = 20;
+
+const kmMonth = (v, m) => (v.norm > 20 ? 9000 : 800) + ((v.id * 397 + m * 211) % 2200);
+function reading(v, m) {
+  const r = READINGS[m][v.id];
+  const start = 40000 + v.id * 13711 + (m === 'sep' ? kmMonth(v, 8) : 0);
+  const has = r && !r.late;
+  const end = has ? (r.end ?? start + kmMonth(v, MONTHS[m].idx)) : null;
+  const km = has ? end - start : null;
+  const status = !r ? 'asteptam' : r.late ? 'intarziat' : r.wb ? 'foaie' : 'primit';
+  return { r, start, end, km, fuelL: has ? (km * v.norm / 100).toFixed(1) : null, status };
+}
+const FSTAT = {
+  asteptam:  { label: 'Așteptăm date',    cls: 'b-grey' },
+  intarziat: { label: 'Lipsă · notificat', cls: 'b-bad' },
+  primit:    { label: 'Date primite',     cls: 'b-info' },
+  foaie:     { label: 'Foaie generată',   cls: 'b-ok' },
 };
 
 const NOTIFS = [
   { t: 'Termen raport R1 — 25 septembrie', s: '6 clienți plătitori TVA au R1 nedepus pentru august', when: 'acum 10 min', ch: ['app', 'email', 'tg'], type: 'warn', unread: true },
+  { t: 'Date odometru primite pe Telegram', s: 'Eco Fructe SRL · CRL 422 — de generat foaia de parcurs pentru septembrie', when: 'acum 40 min', ch: ['app'], type: 'info', unread: true },
   { t: 'Restanță nouă detectată din 1C', s: 'Moldagro Export SA — 24 800 MDL, 45 zile', when: 'acum 1 oră', ch: ['app', 'tg'], type: 'bad', unread: true },
-  { t: 'Transport T-1041 — problemă', s: 'TechSoft Solutions SRL: clientul nu a fost la oficiu', when: 'acum 2 ore', ch: ['app', 'tg'], type: 'bad', unread: true },
+  { t: 'Kilometraj lipsă pentru august', s: '2 automobile fără date la odometru — notificare Telegram retrimisă clienților', when: '03.09, 10:00', ch: ['app', 'tg'], type: 'bad', unread: false },
   { t: 'Client nou în onboarding', s: 'Print Studio SRL — așteaptă repartizare pe contabil', when: 'ieri, 17:40', ch: ['app', 'email'], type: 'info', unread: false },
   { t: 'Sincronizare 1C finalizată', s: '142 clienți actualizați, 3 restanțe noi', when: 'ieri, 06:00', ch: ['app'], type: 'ok', unread: false },
   { t: 'Raport R4 depus', s: 'Dental Art SRL — depus de Ion Ceban', when: 'ieri, 12:15', ch: ['app'], type: 'ok', unread: false },
@@ -361,6 +395,9 @@ const state = {
   reportView: 'all',
   wiz: { step: 1, idno: '', name: '', form: 'SRL', vat: null, iban: '', bank: 'MAIB', contact: '', phone: '', email: '', acc: '' },
   syncing: false,
+  fleetMonth: 'sep',
+  fleetFilter: 'all',
+  modal: null,
 };
 
 /* ---------- Helpers ---------- */
@@ -371,9 +408,11 @@ const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCa
 const avatar = (a, lg) => a ? `<span class="avatar${lg ? ' lg' : ''}" style="background:${a.color}">${initials(a.name)}</span>` : `<span class="avatar${lg ? ' lg' : ''}" style="background:var(--border);color:var(--muted)">?</span>`;
 const who = a => a ? `<span class="who">${avatar(a)}${a.name}</span>` : '<span class="badge b-warn">Nerepartizat</span>';
 const mdl = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' MDL';
+const km = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 const badge = (s, map) => `<span class="badge ${map[s].cls}">${map[s].label}</span>`;
 const vatBadge = c => c.vat ? '<span class="badge plain b-pri">Plătitor TVA</span>' : '<span class="badge plain b-grey">Non-TVA</span>';
 const visibleClients = () => state.role === 'contabil' ? CLIENTS.filter(c => c.acc === state.meId) : CLIENTS;
+const visibleVehicles = () => VEHICLES.filter(v => visibleClients().some(c => c.id === v.client));
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
@@ -385,7 +424,7 @@ const NAV = [
   { href: '#/', label: 'Panou', icon: 'home' },
   { href: '#/clienti', label: 'Clienți', icon: 'clients' },
   { href: '#/rapoarte', label: 'Rapoarte', icon: 'reports', count: () => visibleClients().reduce((n, c) => n + reportsFor(c).filter(r => repStatus(c, r) === 'restant').length, 0) },
-  { href: '#/transport', label: 'Transport', icon: 'truck' },
+  { href: '#/auto', label: 'Parc auto', icon: 'truck', count: () => visibleVehicles().filter(v => reading(v, 'aug').status === 'intarziat').length },
   { href: '#/notificari', label: 'Notificări', icon: 'bell', count: () => NOTIFS.filter(n => n.unread).length },
   { group: 'Administrare', admin: true },
   { href: '#/echipa', label: 'Distribuție clienți', icon: 'team', admin: true },
@@ -412,7 +451,9 @@ function pageDashboard() {
   const pending = allReps.filter(x => x.s !== 'depus');
   const late = allReps.filter(x => x.s === 'restant');
   const debts = cl.filter(c => c.debt > 0);
-  const transit = TRANSPORT.filter(t => (t.status === 'drum' || t.status === 'programat') && cl.some(c => c.id === t.client));
+  const vs = visibleVehicles();
+  const kmMissing = vs.filter(v => reading(v, 'sep').status === 'asteptam').length;
+  const kmLate = vs.filter(v => reading(v, 'aug').status === 'intarziat').length;
   const done = allReps.length - pending.length;
   const pct = Math.round(done / allReps.length * 100);
 
@@ -430,7 +471,7 @@ function pageDashboard() {
     ${kpi(state.role === 'admin' ? 'Clienți activi' : 'Clienții mei', cl.filter(c => c.status === 'activ').length, `${cl.filter(c => c.vat).length} plătitori TVA · ${cl.filter(c => !c.vat).length} non-TVA`, 'clients', 'primary')}
     ${kpi('Rapoarte de depus', pending.length, `${late.length} restante · termen în 2 zile`, 'reports', 'warn')}
     ${kpi('Restanțe 1C', mdl(debts.reduce((s, c) => s + c.debt, 0)), `${debts.length} clienți cu datorii`, 'coin', 'bad')}
-    ${kpi('Transport activ', transit.length, 'ridicări și livrări azi', 'truck', 'info')}
+    ${kpi('Kilometraj de primit', kmMissing, `${vs.length} automobile · termen 30.09${kmLate ? ` · ${kmLate} lipsă din august` : ''}`, 'truck', 'info')}
   </div>
   <div class="grid g-main">
     <div class="grid" style="align-content:start">
@@ -540,11 +581,19 @@ function pageClient(id) {
     </tbody></table></div>`;
   if (state.clientTab === 'history') body = `<div class="timeline">
       <div class="tl"><div>Sync 1C: ${c.debt ? `restanță ${mdl(c.debt)} detectată` : 'fără restanțe'}</div><div class="s">azi, 06:00 · sistem</div></div>
-      <div class="tl"><div>Transport T-10${30 + c.id} livrat — documente primare august</div><div class="s">12 sep 2026 · Andrei M.</div></div>
+      ${VEHICLES.some(v => v.client === c.id) ? `<div class="tl"><div>Foaie de parcurs pentru august generată</div><div class="s">1 sep 2026 · ${a?.name ?? '—'}</div></div>` : ''}
       <div class="tl"><div>${reportsFor(c)[0]} pentru iulie depus</div><div class="s">24 aug 2026 · ${a?.name ?? '—'}</div></div>
       <div class="tl"><div>Notificare Telegram trimisă administratorului</div><div class="s">20 aug 2026 · sistem</div></div>
       <div class="tl"><div>Client repartizat către ${a?.name ?? '—'}</div><div class="s">3 mar 2023 · Admin</div></div>
     </div>`;
+
+  if (state.clientTab === 'auto') {
+    const vs = VEHICLES.filter(v => v.client === c.id);
+    body = vs.length ? `<div class="table-wrap"><table><thead><tr><th>Automobil</th><th>Șofer</th><th>Combustibil · normă</th><th>August</th><th>Septembrie</th><th></th></tr></thead><tbody>
+      ${vs.map(v => `<tr><td style="white-space:nowrap"><div class="plate">${v.plate}</div><div class="muted" style="font-size:12px;margin-top:4px">${v.model}</div></td><td>${v.driver}</td><td>${v.fuel} · ${v.norm} l/100 km</td>
+        <td>${badge(reading(v, 'aug').status, FSTAT)}</td><td>${badge(reading(v, 'sep').status, FSTAT)}</td><td><a class="btn sm" href="#/auto">Deschide</a></td></tr>`).join('')}
+    </tbody></table></div>` : `<div class="muted" style="text-align:center;padding:30px">Clientul nu are automobile în evidență.<br><br><button class="btn" data-action="soon">${ic('plus')}Adaugă automobil</button></div>`;
+  }
 
   return `
   <div class="crumbs"><a href="#/clienti">Clienți</a> / ${c.name}</div>
@@ -556,10 +605,10 @@ function pageClient(id) {
       <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">Contabil responsabil</div>${who(a)}</div>
         <div><div class="muted" style="font-size:12px;margin-bottom:4px">Restanță 1C</div><div class="strong" style="color:${c.debt ? 'var(--bad)' : 'var(--ok)'}">${c.debt ? mdl(c.debt) : 'Achitat'}</div></div>
-        <button class="btn" data-action="soon">${ic('truck')}Programează transport</button>
+        <button class="btn" data-tab="auto">${ic('truck')}Automobile (${VEHICLES.filter(v => v.client === c.id).length})</button>
       </div>
     </div>
-    <div class="tabs">${tab('legal', 'Date legale')}${tab('bank', 'Conturi bancare')}${tab('contacts', 'Contacte')}${tab('reports', 'Rapoarte')}${tab('history', 'Istoric')}</div>
+    <div class="tabs">${tab('legal', 'Date legale')}${tab('bank', 'Conturi bancare')}${tab('contacts', 'Contacte')}${tab('reports', 'Rapoarte')}${tab('auto', 'Automobile')}${tab('history', 'Istoric')}</div>
     <div class="card-b" style="padding:20px">${body}</div>
   </div>`;
 }
@@ -588,26 +637,106 @@ function pageReports() {
   </div>`;
 }
 
-function pageTransport() {
-  const cols = ['programat', 'drum', 'livrat', 'problema'];
-  const vis = TRANSPORT.filter(t => visibleClients().some(c => c.id === t.client));
+function fleetAction(v, x) {
+  if (x.status === 'foaie') return `<button class="btn sm" data-wb="${v.id}">${ic('reports', 14)}Vezi foaia</button>`;
+  if (x.status === 'primit') return `<button class="btn sm primary" data-gen="${v.id}">Generează foaie</button>`;
+  if (x.status === 'intarziat') return `<div style="display:flex;gap:6px"><button class="btn sm" data-remind-v="${v.id}">${ic('send', 14)}Retrimite</button><button class="btn sm" data-input="${v.id}">Introdu</button></div>`;
+  return `<button class="btn sm" data-input="${v.id}">Introdu manual</button>`;
+}
+
+function pageFleet() {
+  const m = state.fleetMonth, M = MONTHS[m];
+  const vs = visibleVehicles();
+  const rows = vs.map(v => ({ v, x: reading(v, m) }));
+  const cnt = s => rows.filter(r => r.x.status === s).length;
+  const shown = state.fleetFilter === 'all' ? rows : rows.filter(r => r.x.status === state.fleetFilter);
+  const seg = (k, l) => `<button data-fm="${k}" class="${m === k ? 'on' : ''}">${l}</button>`;
+  const fseg = (k, l) => `<button data-ff="${k}" class="${state.fleetFilter === k ? 'on' : ''}">${l}</button>`;
+  const kpi = (lbl, val, sub, tone) => `<div class="card kpi"><div class="lbl">${lbl}</div><div class="val" style="${tone ? `color:var(--${tone})` : ''}">${val}</div><div class="sub">${sub}</div></div>`;
+  const missing = cnt('asteptam') + cnt('intarziat');
+  const demo = VEHICLES[5], demoStart = reading(demo, 'aug').start;
   return `
-  <div class="page-head"><div><h1>Transport documente</h1><p>Ridicări și livrări de documente · clientul primește notificare la fiecare schimbare de status</p></div>
-    <button class="btn primary" data-action="soon">${ic('plus')}Transport nou</button></div>
-  <div class="kanban">${cols.map(s => {
-    const items = vis.filter(t => t.status === s);
-    return `<div class="col"><div class="col-h"><span>${badge(s, TSTAT)}</span><span class="muted">${items.length}</span></div>
-      ${items.map(t => `<div class="tcard">
-        <div class="muted mono" style="font-size:12px;margin-bottom:4px">${t.id}</div>
-        <div class="t">${client(t.client).name}</div>
-        <div class="muted" style="font-size:13px">${t.type}</div>
-        ${t.note ? `<div class="badge plain b-bad" style="margin-top:8px">${ic('alert', 13)} ${t.note}</div>` : ''}
-        <div class="steps-mini">${[1, 2, 3, 4].map(i => `<span class="${i <= t.step ? 'on' : ''}"></span>`).join('')}</div>
-        <div class="row"><span>${ic('clock', 14)} ${t.date}</span><span>${t.courier}</span></div>
-      </div>`).join('') || '<div class="muted" style="text-align:center;padding:20px;font-size:13px">Nimic aici</div>'}
-    </div>`;
-  }).join('')}</div>
-  <div class="callout" style="margin-top:16px">${ic('send')}<div style="font-size:13px"><b>Notificări automate:</b> la „În drum” clientul primește mesaj pe Telegram cu ora estimată; la „Livrat” — confirmare pe email; la „Problemă” — alertă către contabilul responsabil.</div></div>`;
+  <div class="page-head"><div><h1>Parc auto &amp; foi de parcurs</h1><p>Automobilele clienților în evidență · date la odometru lunar · foi de parcurs generate automat</p></div>
+    <button class="btn primary" data-action="soon">${ic('plus')}Adaugă automobil</button></div>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <div class="seg">${seg('sep', 'Septembrie 2026 · în curs')}${seg('aug', 'August 2026')}</div>
+    <span class="muted" style="font-size:13px">${M.closed ? `Termen expirat la ${M.deadline}` : `Termen: <b>${M.deadline}</b> (ultima zi a lunii) · mai sunt 7 zile`}</span>
+  </div>
+  <div class="grid g4" style="margin-bottom:16px">
+    ${kpi('Automobile în evidență', vs.length, `${new Set(vs.map(v => v.client)).size} clienți`)}
+    ${kpi('Date primite', `${cnt('primit') + cnt('foaie')} / ${vs.length}`, 'odometru transmis de client')}
+    ${kpi(M.closed ? 'Lipsă după termen' : 'Încă de primit', missing, M.closed ? 'notificați pe Telegram' : `notificare Telegram automată la ${M.deadline}, 18:00`, missing && M.closed ? 'bad' : '')}
+    ${kpi('Foi de parcurs', cnt('foaie'), cnt('primit') ? `${cnt('primit')} gata de generat` : 'toate generate', 'ok')}
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="toolbar"><div class="seg">${fseg('all', 'Toate')}${fseg('asteptam', 'Așteptăm')}${fseg('intarziat', 'Lipsă')}${fseg('primit', 'De generat')}${fseg('foaie', 'Generate')}</div>
+      <div style="flex:1"></div>${cnt('primit') ? `<button class="btn sm primary" data-action="gen-all">${ic('reports', 14)}Generează toate (${cnt('primit')})</button>` : ''}</div>
+    <div class="table-wrap"><table><thead><tr><th>Automobil</th><th>Client</th><th class="num">Odometru început</th><th class="num">Odometru sfârșit</th><th class="num">Km parcurși</th><th class="num">Consum normat</th><th>Primit</th><th>Status</th><th></th></tr></thead><tbody>
+      ${shown.map(({ v, x }) => `<tr>
+        <td style="white-space:nowrap"><div class="plate">${v.plate}</div><div class="muted" style="font-size:12px;margin-top:4px">${v.model}</div></td>
+        <td style="white-space:nowrap"><a href="#/client/${v.client}">${client(v.client).name}</a><div class="muted" style="font-size:12px">${v.driver}</div></td>
+        <td class="num mono">${km(x.start)}</td>
+        <td class="num mono">${x.end ? km(x.end) : '<span class="muted">—</span>'}</td>
+        <td class="num mono strong">${x.km ? km(x.km) : '<span class="muted">—</span>'}</td>
+        <td class="num mono">${x.fuelL ? x.fuelL + ' l' : '<span class="muted">—</span>'}</td>
+        <td style="font-size:12px;white-space:nowrap">${x.r && !x.r.late ? `${x.r.date}<div class="muted">${x.r.via}</div>` : x.r?.late ? `<span style="color:var(--bad)">nu a transmis</span><div class="muted">notificat ${x.r.notified.length}×</div>` : '<span class="muted">—</span>'}</td>
+        <td>${badge(x.status, FSTAT)}</td>
+        <td>${fleetAction(v, x)}</td>
+      </tr>`).join('') || '<tr><td colspan="9" class="muted" style="text-align:center;padding:30px">Nimic de afișat</td></tr>'}
+    </tbody></table></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><div class="card-h"><h3>Cum funcționează</h3></div><div class="card-b"><div class="timeline">
+      <div class="tl"><div class="strong">1. Automobilul este luat la evidență</div><div class="s">Nr. înmatriculare, model, combustibil, normă de consum, șofer</div></div>
+      <div class="tl"><div class="strong">2. La sfârșitul lunii clientul transmite odometrul</div><div class="s">Direct în botul Telegram, pe email sau introdus manual de contabil</div></div>
+      <div class="tl"><div class="strong">3. Nu a transmis până în ultima zi a lunii → notificare Telegram</div><div class="s">Automat, la 18:00; se repetă după 3 zile dacă datele tot lipsesc</div></div>
+      <div class="tl" style="padding-bottom:0"><div class="strong">4. Se generează foaia de parcurs</div><div class="s">Km parcurși = odometru sfârșit − început; consum = km × normă / 100</div></div>
+    </div></div></div>
+    <div class="card"><div class="card-h"><h3>Conversația pe Telegram</h3><span class="muted" style="font-size:12px">@ContaCRM_bot</span></div><div class="card-b tg">
+      <div class="bubble bot">🚗 Bună ziua! Luna <b>august</b> s-a încheiat. Vă rugăm să transmiteți indicațiile odometrului pentru <b>${demo.plate}</b> (${demo.model}).<br><br>Ultima valoare: <b>${km(demoStart)} km</b><div class="time">31.08, 18:00</div></div>
+      <div class="bubble bot">⏰ Reamintire: încă nu am primit kilometrajul pentru <b>${demo.plate}</b>. Fără el nu putem întocmi foaia de parcurs.<div class="time">03.09, 10:00</div></div>
+      <div class="bubble me">${km(demoStart + 1640)}<div class="time">03.09, 10:12</div></div>
+      <div class="bubble bot">✅ Mulțumim! Am înregistrat ${km(demoStart + 1640)} km (1 640 km parcurși în august). Foaia de parcurs va fi întocmită de contabil.<div class="time">03.09, 10:12</div></div>
+    </div></div>
+  </div>`;
+}
+
+function modalHtml() {
+  const md = state.modal;
+  if (!md) return '';
+  const v = VEHICLES.find(x => x.id === md.vid), c = client(v.client), m = state.fleetMonth, M = MONTHS[m], x = reading(v, m);
+  let inner = '';
+  if (md.type === 'input') inner = `
+    <div class="card-h"><h3>Date odometru — ${v.plate}</h3><button class="icon-btn" data-action="close" aria-label="Închide">✕</button></div>
+    <div class="card-b">
+      <div class="muted" style="margin-bottom:14px">${c.name} · ${v.model} · ${M.label}</div>
+      <div class="form">
+        <div class="field"><label>Odometru la început</label><input class="input mono" value="${km(x.start)}" disabled></div>
+        <div class="field"><label>Odometru la sfârșit</label><input class="input mono" id="odoEnd" placeholder="ex. ${km(x.start + 1500)}" inputmode="numeric"></div>
+        <div class="field full"><div class="callout" id="odoCalc">${ic('info')}<div style="font-size:13px">Introdu valoarea — km parcurși și consumul se calculează automat.</div></div></div>
+      </div>
+    </div>
+    <div class="card-h" style="border-top:1px solid var(--border);border-bottom:0"><button class="btn" data-action="close">Anulează</button><button class="btn primary" data-save="${v.id}">Salvează și generează foaia</button></div>`;
+  if (md.type === 'wb') inner = `
+    <div class="card-h"><h3>Foaie de parcurs</h3><button class="icon-btn" data-action="close" aria-label="Închide">✕</button></div>
+    <div class="card-b"><div class="waybill">
+      <div style="text-align:center;margin-bottom:16px"><div class="strong" style="font-size:16px;letter-spacing:.04em">FOAIE DE PARCURS</div><div class="mono">nr. ${x.r.wb}</div><div class="muted" style="font-size:12px">pentru perioada ${M.from} – ${M.to}</div></div>
+      <dl class="dl" style="grid-template-columns:170px 1fr;font-size:13px;gap:8px 12px">
+        <dt>Întreprinderea</dt><dd>${c.name}</dd><dt>IDNO</dt><dd class="mono">${c.idno}</dd>
+        <dt>Automobil</dt><dd>${v.model}</dd><dt>Nr. înmatriculare</dt><dd><span class="plate">${v.plate}</span></dd>
+        <dt>Șofer</dt><dd>${v.driver}</dd><dt>Tip combustibil</dt><dd>${v.fuel}</dd>
+      </dl>
+      <table style="margin-top:16px;font-size:13px"><thead><tr><th>Indicator</th><th class="num">Valoare</th></tr></thead><tbody>
+        <tr><td>Odometru la începutul lunii</td><td class="num mono">${km(x.start)} km</td></tr>
+        <tr><td>Odometru la sfârșitul lunii</td><td class="num mono">${km(x.end)} km</td></tr>
+        <tr><td class="strong">Parcurs total</td><td class="num mono strong">${km(x.km)} km</td></tr>
+        <tr><td>Norma de consum</td><td class="num mono">${v.norm} l / 100 km</td></tr>
+        <tr><td class="strong">Consum normat de combustibil</td><td class="num mono strong">${x.fuelL} l</td></tr>
+      </tbody></table>
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:28px;font-size:12px" class="muted"><span>Contabil: ${acc(c.acc)?.name ?? '________'}</span><span>Semnătura șoferului: ________</span></div>
+    </div></div>
+    <div class="card-h" style="border-top:1px solid var(--border);border-bottom:0;flex-wrap:wrap"><span class="muted" style="font-size:12px">Date primite ${x.r.date} · ${x.r.via}</span><div style="display:flex;gap:8px"><button class="btn" data-action="soon">${ic('send', 16)}Trimite clientului</button><button class="btn primary" data-action="pdf">${ic('download', 16)}Descarcă PDF</button></div></div>`;
+  return `<div class="overlay" data-action="close-bg"><div class="card modal">${inner}</div></div>`;
 }
 
 function pageTeam() {
@@ -646,7 +775,7 @@ function pageTeam() {
 
 function pageNotifs() {
   const chIcon = { app: ['bell', 'În aplicație'], email: ['mail', 'Email'], tg: ['send', 'Telegram'] };
-  const events = [['Termen raport se apropie (cu 3 zile înainte)', 1, 1, 1], ['Raport restant', 1, 1, 1], ['Restanță nouă din 1C', 1, 0, 1], ['Schimbare status transport', 1, 0, 1], ['Client nou repartizat', 1, 1, 0], ['Rezumat zilnic (08:00)', 0, 1, 1]];
+  const events = [['Termen raport se apropie (cu 3 zile înainte)', 1, 1, 1], ['Raport restant', 1, 1, 1], ['Restanță nouă din 1C', 1, 0, 1], ['Date odometru lipsă în ultima zi a lunii (către client)', 1, 0, 1], ['Date odometru primite de la client', 1, 0, 0], ['Client nou repartizat', 1, 1, 0], ['Rezumat zilnic (08:00)', 0, 1, 1]];
   return `
   <div class="page-head"><div><h1>Notificări</h1><p>Email + Telegram + în aplicație</p></div><button class="btn" data-action="readall">${ic('check')}Marchează toate citite</button></div>
   <div class="grid g-main">
@@ -719,6 +848,7 @@ function pageOnboarding() {
       <div class="field"><label>Telefon</label><input class="input" data-w="phone" value="${w.phone}" placeholder="+373 …"></div>
       <div class="field"><label>Email</label><input class="input" data-w="email" value="${w.email}" placeholder="contact@firma.md"></div>
       <div class="field"><label>Telegram</label><div style="display:flex;gap:8px"><input class="input" placeholder="@username" style="flex:1"><button class="btn" data-action="soon">Trimite invitație bot</button></div></div>
+      <div class="field full"><label>Automobile înregistrate pe firmă</label><input class="input mono" data-w="cars" value="${w.cars ?? ''}" placeholder="ex. CDK 540, CDK 541"><div class="hint">Se iau la evidență: clientul va fi rugat lunar pe Telegram să transmită datele la odometru, pentru foaia de parcurs</div></div>
     </div>`;
   if (w.step === 4) {
     const sug = [...ACC].sort((x, y) => CLIENTS.filter(k => k.acc === x.id).length - CLIENTS.filter(k => k.acc === y.id).length)[0];
@@ -733,7 +863,7 @@ function pageOnboarding() {
           <dt>Denumire</dt><dd>${w.name || '—'}</dd><dt>IDNO</dt><dd class="mono">${w.idno || '—'}</dd><dt>Formă</dt><dd>${w.form}</dd>
           <dt>Regim</dt><dd>${w.vat === null ? '—' : w.vat ? 'Plătitor TVA' : 'Non-TVA'}</dd>
           <dt>Rapoarte</dt><dd>${w.vat === null ? '—' : (w.vat ? VAT_R : NOVAT_R).join(', ')}</dd>
-          <dt>Bancă</dt><dd>${w.bank}</dd><dt>Contact</dt><dd>${w.contact || '—'}</dd>
+          <dt>Bancă</dt><dd>${w.bank}</dd><dt>Automobile</dt><dd>${w.cars || 'nu are'}</dd><dt>Contact</dt><dd>${w.contact || '—'}</dd>
         </dl></div></div>
     </div>`;
   }
@@ -756,26 +886,38 @@ function render() {
   else if (path === '/clienti') html = pageClients();
   else if (path.startsWith('/client/')) html = pageClient(path.split('/')[2]);
   else if (path === '/rapoarte') html = pageReports();
-  else if (path === '/transport') html = pageTransport();
+  else if (path === '/auto') html = pageFleet();
   else if (path === '/echipa') html = pageTeam();
   else if (path === '/notificari') html = pageNotifs();
   else if (path === '/sync') html = pageSync();
   else if (path === '/onboarding') html = pageOnboarding();
   else html = pageDashboard();
-  $('#view').innerHTML = html;
+  $('#view').innerHTML = html + modalHtml();
   $('#sidebar').classList.remove('open');
 }
-window.addEventListener('hashchange', () => { state.clientTab = 'legal'; render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { state.clientTab = 'legal'; state.modal = null; render(); window.scrollTo(0, 0); });
 
 /* ---------- Events ---------- */
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-action],[data-role],[data-cf],[data-rv],[data-tab],[data-go],[data-do-assign],[data-vat],[data-acc]');
+  const t = e.target.closest('[data-action],[data-role],[data-cf],[data-rv],[data-tab],[data-go],[data-do-assign],[data-vat],[data-acc],[data-fm],[data-ff],[data-wb],[data-gen],[data-input],[data-remind-v],[data-save]');
   if (!t) return;
   const d = t.dataset;
   if (d.role) { state.role = d.role; render(); toast(d.role === 'admin' ? 'Vizualizare ca Admin' : 'Vizualizare ca Contabil (Ana Rusu)'); return; }
   if (d.cf) { state.clientFilter = d.cf; render(); return; }
   if (d.rv) { state.reportView = d.rv; render(); return; }
   if (d.tab) { state.clientTab = d.tab; render(); return; }
+  if (d.fm) { state.fleetMonth = d.fm; state.fleetFilter = 'all'; render(); return; }
+  if (d.ff) { state.fleetFilter = d.ff; render(); return; }
+  if (d.wb) { state.modal = { type: 'wb', vid: +d.wb }; render(); return; }
+  if (d.input) { state.modal = { type: 'input', vid: +d.input }; render(); $('#odoEnd').focus(); return; }
+  if (d.gen) { generateWb(+d.gen); state.modal = { type: 'wb', vid: +d.gen }; render(); toast('Foaie de parcurs generată'); return; }
+  if (d.remindV) { const v = VEHICLES.find(x => x.id === +d.remindV); READINGS[state.fleetMonth][v.id].notified.push('23.09 · Telegram (manual)'); render(); toast(`Reamintire Telegram trimisă — ${client(v.client).name}, ${v.plate}`); return; }
+  if (d.save) {
+    const v = VEHICLES.find(x => x.id === +d.save), val = parseInt($('#odoEnd').value.replace(/\D/g, ''), 10), x = reading(v, state.fleetMonth);
+    if (!val || val <= x.start) { toast('Valoarea trebuie să fie mai mare decât odometrul de început'); return; }
+    READINGS[state.fleetMonth][v.id] = { via: 'Manual', date: '23.09', wb: null, end: val };
+    generateWb(v.id); state.modal = { type: 'wb', vid: v.id }; render(); toast('Date salvate · foaie de parcurs generată'); return;
+  }
   if (d.go && !e.target.closest('a')) { location.hash = d.go; return; }
   if (d.doAssign) {
     const c = client(+d.doAssign), sel = document.querySelector(`[data-assign="${d.doAssign}"]`);
@@ -804,6 +946,13 @@ document.addEventListener('click', e => {
       state.wiz = { step: 1, idno: '', name: '', form: 'SRL', vat: null, iban: '', bank: 'MAIB', contact: '', phone: '', email: '', acc: '' };
       location.hash = '#/clienti'; break;
     case 'sync': runSync(); break;
+    case 'close': state.modal = null; render(); break;
+    case 'close-bg': if (e.target === t) { state.modal = null; render(); } break;
+    case 'pdf': toast('PDF descărcat (demo)'); break;
+    case 'gen-all': {
+      const list = visibleVehicles().filter(v => reading(v, state.fleetMonth).status === 'primit');
+      list.forEach(v => generateWb(v.id)); render(); toast(`${list.length} foi de parcurs generate`); break;
+    }
   }
 });
 document.addEventListener('input', e => {
@@ -813,7 +962,19 @@ document.addEventListener('input', e => {
     const el = $('#cq'); el.focus(); el.setSelectionRange(pos, pos);
   }
   if (e.target.dataset.w) state.wiz[e.target.dataset.w] = e.target.value;
+  if (e.target.id === 'odoEnd') {
+    const v = VEHICLES.find(x => x.id === state.modal.vid), x = reading(v, state.fleetMonth);
+    const val = parseInt(e.target.value.replace(/\D/g, ''), 10), d = val - x.start;
+    $('#odoCalc').innerHTML = !val ? `${ic('info')}<div style="font-size:13px">Introdu valoarea — km parcurși și consumul se calculează automat.</div>`
+      : d <= 0 ? `${ic('alert')}<div style="font-size:13px;color:var(--bad)">Valoarea trebuie să fie mai mare decât ${km(x.start)}</div>`
+      : `${ic('check')}<div style="font-size:13px">Parcurs: <b>${km(d)} km</b> · consum normat: <b>${(d * v.norm / 100).toFixed(1)} l</b> (${v.norm} l/100 km)${d > 15000 ? ' · <span style="color:var(--warn)">valoare neobișnuit de mare, verifică</span>' : ''}</div>`;
+  }
 });
+function generateWb(vid) {
+  const m = state.fleetMonth;
+  READINGS[m][vid].wb = `FP-2026-${String(MONTHS[m].idx).padStart(2, '0')}-${String(++wbCounter).padStart(3, '0')}`;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modal) { state.modal = null; render(); } });
 function runSync() {
   state.syncing = true; render();
   const msgs = ['Conectare la 1C…', 'Import solduri clienți…', 'Comparare cu facturile emise…', 'Detecție restanțe…', 'Finalizat'];
