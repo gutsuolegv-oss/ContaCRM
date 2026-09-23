@@ -139,3 +139,23 @@ docker compose logs egress-proxy | grep TCP_DENIED
   aleatoriu, se schimbă la plecarea unui angajat cu acces și nu se trimit prin chat sau email.
 - Datele despre datoriile clienților nu sunt trimise de backend către rolul Contabil (vezi RBAC), deci
   nu ajung nici în browser.
+
+## Decizii luate: de implementat după funcționalul de bază
+
+Stabilite în discuție, încă neimplementate:
+
+1. **VM separată pentru gateway și proxy** (nu pe aceeași VM cu CRM-ul). Firewall-ul de perimetru
+   blochează orice ieșire a VM-ului CRM; doar VM-ul gateway ajunge la Telegram și SMTP.
+   De făcut: `docker-compose.yml` împărțit în două (CRM, respectiv `gateway/docker-compose.yml`).
+2. **HTTPS în rețeaua locală cu o autoritate de certificare (CA) internă.** Certificatul serverului CRM
+   include IP-ul (ex. `192.168.x.150`) și un nume (ex. `crm.birou.internal`). Certificatul CA-ului se
+   instalează pe calculatoarele biroului.
+3. **Acces la CRM în patru straturi:**
+   1. `iptables` + `ipset`: doar IP-urile din listă (cu rezervări DHCP pe router);
+   2. **certificat de client (mTLS) obligatoriu**: fiecare dispozitiv primește propriul `.p12`, cu cheie
+      neexportabilă; nginx refuză conexiunile fără certificat valid; revocarea se face prin CRL;
+   3. utilizator + parolă (2FA opțional);
+   4. RBAC (Admin / Contabil).
+4. **mTLS și între VM-ul CRM și VM-ul gateway**, cu certificate emise de același CA intern.
+5. Scripturi de livrat: creare CA, emitere și revocare certificate `.p12`, reguli iptables/ipset,
+   instrucțiuni de instalare a certificatului pe un calculator nou.
