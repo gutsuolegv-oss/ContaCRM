@@ -1,0 +1,132 @@
+# ContaCRM — topologia serviciilor și a rețelelor.
+# Vezi docs/architecture.md și docs/security.md.
+#
+# Directoarele backend/, frontend/, gateway/ se creează în etapa de implementare.
+#
+# Rețele:
+#   crm_internal  — internă, fără internet: web, backend, worker, beat, postgres, redis
+#   gw_link       — internă: doar worker ↔ notify-gateway
+#   egress        — internă: doar notify-gateway ↔ egress-proxy
+#   outbound      — singura cu ieșire spre internet; doar egress-proxy
+#   web_public    — publicarea portului 443 pentru rețeaua biroului; doar web
+
+name: contacrm
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  REDIS_URL: redis://redis:6379/0
+  GATEWAY_URL: http://notify-gateway:8080
+  GATEWAY_API_KEY: ${GATEWAY_API_KEY}
+  APP_SECRET_KEY: ${APP_SECRET_KEY}
+  TZ: Europe/Chisinau
+
+services:
+  web:
+    build: ./frontend
+    ports:
+      - "${OFFICE_BIND_IP:-127.0.0.1}:443:443"
+    volumes:
+      - ./infra/tls:/etc/nginx/tls:ro
+    depends_on: [backend]
+    networks: [web_public, crm_internal]
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment: *app-env
+    depends_on: [postgres, redis]
+    networks: [crm_internal]
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: celery -A app.worker worker --loglevel=info
+    environment: *app-env
+    depends_on: [postgres, redis, notify-gateway]
+    # Singurul serviciu CRM care vede gateway-ul. Nu ascultă pe niciun port,
+    # deci gateway-ul nu poate iniția conexiuni spre CRM.
+    networks: [crm_internal, gw_link]
+    restart: unless-stopped
+
+  beat:
+    build: ./backend
+    command: celery -A app.worker beat --loglevel=info
+    environment: *app-env
+    depends_on: [redis]
+    networks: [crm_internal]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [crm_internal]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    networks: [crm_internal]
+    restart: unless-stopped
+
+  notify-gateway:
+    build: ./gateway
+    environment:
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      # Toate conexiunile externe trec prin proxy-ul cu listă albă.
+      HTTPS_PROXY: http://egress-proxy:3128
+      NO_PROXY: localhost,127.0.0.1
+      RATE_LIMIT_PER_MINUTE: ${GATEWAY_RATE_LIMIT_PER_MINUTE:-30}
+      TZ: Europe/Chisinau
+    volumes:
+      - gatewaydata:/data   # jurnal de audit + cursor inbox (SQLite)
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [egress-proxy]
+    networks: [gw_link, egress]
+    restart: unless-stopped
+
+  egress-proxy:
+    image: ubuntu/squid:latest
+    volumes:
+      - ./infra/egress-proxy/squid.conf:/etc/squid/squid.conf:ro
+    networks:
+      egress:
+      outbound:
+        ipv4_address: 172.30.0.10   # adresă fixă, folosită în regulile de firewall ale host-ului
+    restart: unless-stopped
+
+networks:
+  crm_internal:
+    internal: true
+    ipam: { config: [{ subnet: 172.28.0.0/24 }] }
+  gw_link:
+    internal: true
+    ipam: { config: [{ subnet: 172.28.1.0/24 }] }
+  egress:
+    internal: true
+    ipam: { config: [{ subnet: 172.28.2.0/24 }] }
+  outbound:
+    ipam: { config: [{ subnet: 172.30.0.0/24 }] }
+  web_public:
+    ipam: { config: [{ subnet: 172.31.0.0/24 }] }
+
+volumes:
+  pgdata:
+  redisdata:
+  gatewaydata:

@@ -19,6 +19,13 @@ CRM pentru firme de contabilitate din Moldova.
 - **Realtime:** WebSocket (FastAPI)
 - **Notificări:** SMTP + Telegram Bot
 
+## Arhitectură și securitate
+Serverul CRM rulează **fără acces la internet**. Singura ieșire este gateway-ul de notificări,
+care ajunge doar la Telegram și la serverul SMTP, printr-un proxy cu listă albă.
+- [docs/architecture.md](docs/architecture.md): componente, rețele, contractul worker ↔ gateway
+- [docs/security.md](docs/security.md): reguli de firewall, protecție anti-scurgere, verificare
+- [docker-compose.yml](docker-compose.yml): topologia serviciilor și rețelelor izolate
+
 ## Demo design (mockup)
 Prototip vizual interactiv, fără backend, cu date fictive: [`mockup/index.html`](mockup/index.html).
 Se deschide direct în browser (dublu-click) sau:
