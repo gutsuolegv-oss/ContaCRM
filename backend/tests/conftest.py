@@ -1,7 +1,8 @@
 """Fixtures comune.
 
 Testele rulează pe o bază separată, <POSTGRES_DB>_test, creată automat pe același server
-PostgreSQL. Fiecare test primește o sesiune într-o tranzacție care se anulează la final,
+PostgreSQL. Schema se aduce la zi cu migrările Alembic (`upgrade head`) la începutul sesiunii
+de teste. Fiecare test primește o sesiune într-o tranzacție care se anulează la final,
 deci testele nu își lasă date unul altuia.
 """
 
@@ -10,11 +11,14 @@ import os
 os.environ.setdefault("ENVIRONMENT", "test")
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import make_url, text
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -43,11 +47,22 @@ async def _ensure_database(url: URL) -> None:
     await admin.dispose()
 
 
+ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
+
+
+def alembic_config(connection: Connection) -> Config:
+    cfg = Config(ALEMBIC_INI)
+    cfg.attributes["connection"] = connection
+    return cfg
+
+
 @pytest.fixture(scope="session")
 async def engine() -> AsyncIterator[AsyncEngine]:
     url = _test_database_url()
     await _ensure_database(url)
     engine = create_async_engine(url, poolclass=NullPool)
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda c: command.upgrade(alembic_config(c), "head"))
     yield engine
     await engine.dispose()
 
