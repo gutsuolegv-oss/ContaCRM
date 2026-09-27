@@ -344,6 +344,130 @@ function TelegramBotSection({ canEdit }: { canEdit: boolean }) {
           )}
         </div>
       </div>
+      {data && (
+        <div className="form-section">
+          <div>
+            <h3>Reamintiri</h3>
+            <p>Mesajele prin care botul le cere clienților kilometrajul.</p>
+          </div>
+          <ReminderSettings data={data} canEdit={canEdit} />
+        </div>
+      )}
     </div>
+  );
+}
+
+const DAYS = ["L", "Ma", "Mi", "J", "V", "S", "D"];
+
+/** Reamintirile pentru kilometraj: cele automate și intervalul în care pleacă toate. */
+function ReminderSettings({ data, canEdit }: { data: BotSettingsOut; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const saved = {
+    auto: data.auto_reminders,
+    days: data.reminder_weekdays,
+    start: data.reminder_from.slice(0, 5),
+    end: data.reminder_to.slice(0, 5),
+  };
+  const [form, setForm] = useState(saved);
+  const changed = JSON.stringify(form) !== JSON.stringify(saved);
+  const save = useMutation({
+    mutationFn: () =>
+      api.put<BotSettingsOut>("/api/settings/telegram-bot/reminders", {
+        auto_reminders: form.auto,
+        weekdays: form.days,
+        start: form.start,
+        end: form.end,
+      }),
+    onSuccess: (result) => queryClient.setQueryData(["telegram-bot"], result),
+  });
+  const toggleDay = (day: number) =>
+    setForm((f) => ({
+      ...f,
+      days: f.days.includes(day) ? f.days.filter((d) => d !== day) : [...f.days, day].sort(),
+    }));
+
+  return (
+    <form
+      className="reminder-settings"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+    >
+      <label className="check-line">
+        <input
+          type="checkbox"
+          checked={form.auto}
+          disabled={!canEdit}
+          onChange={(e) => setForm((f) => ({ ...f, auto: e.target.checked }))}
+        />
+        <span>
+          Automate
+          <span className="muted">
+            Clienții cu Telegram legat și automobile fără date primesc un mesaj în ultima zi a lunii
+            la 15:00 și o reamintire pe 3 ale lunii următoare la 10:00, câte o dată pe lună.
+          </span>
+        </span>
+      </label>
+      <div className="field">
+        <label>Se trimit doar în zilele și orele acestea (automate și manuale)</label>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="seg day-picker">
+            {DAYS.map((name, i) => (
+              <button
+                key={name}
+                type="button"
+                className={form.days.includes(i + 1) ? "on" : ""}
+                disabled={!canEdit}
+                onClick={() => toggleDay(i + 1)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+            de la
+            <input
+              className="input"
+              type="time"
+              value={form.start}
+              disabled={!canEdit}
+              onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))}
+              required
+            />
+            până la
+            <input
+              className="input"
+              type="time"
+              value={form.end}
+              disabled={!canEdit}
+              onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))}
+              required
+            />
+          </span>
+        </div>
+        <span className="hint">
+          În afara intervalului, reamintirile așteaptă începutul următorului interval. Între două
+          mesaje automate către același client trec cel puțin 24 de ore.
+        </span>
+      </div>
+      {save.error && <div className="error">{save.error.message}</div>}
+      {canEdit && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn primary sm"
+            type="submit"
+            disabled={!changed || form.days.length === 0 || save.isPending}
+          >
+            <Icon name="check" size={14} /> Salvează reamintirile
+          </button>
+          {changed && (
+            <button className="btn sm ghost" type="button" onClick={() => setForm(saved)}>
+              Renunță
+            </button>
+          )}
+        </div>
+      )}
+    </form>
   );
 }

@@ -9,18 +9,20 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query, status
 
 from app.api.deps import CurrentUser, SessionDep, Today
-from app.core.clock import utc_now
+from app.core.clock import local_now, utc_now
 from app.models import OdometerReading, Vehicle
 from app.schemas.fleet import (
     FleetMonthOut,
     ReadingIn,
     ReadingOut,
+    RemindersOut,
     VehicleCreate,
     VehicleOut,
     VehicleUpdate,
     WaybillOut,
 )
 from app.services.fleet import FleetService
+from app.services.fleet_reminders import ReminderService
 
 router = APIRouter(tags=["parc auto"])
 
@@ -143,3 +145,28 @@ async def get_waybill(waybill_id: int, session: SessionDep, user: CurrentUser) -
 async def cancel_waybill(waybill_id: int, session: SessionDep, user: CurrentUser) -> None:
     """Anulare: foaia dispare (rămâne în jurnalul de modificări), citirea se poate corecta."""
     await FleetService(session, user).cancel_waybill(waybill_id)
+
+
+# --- Reamintiri pe Telegram ---
+
+
+@router.get("/api/clients/{client_id}/fleet/reminders", response_model=RemindersOut)
+async def fleet_reminders(
+    client_id: int,
+    session: SessionDep,
+    user: CurrentUser,
+    today: Today,
+    year: Annotated[int, Query(ge=2000, le=2100)],
+    month: Annotated[int, Query(ge=1, le=12)],
+) -> RemindersOut:
+    """Reamintirile trimise clientului pe lună și dacă se poate trimite una acum."""
+    return await ReminderService(session, user).overview(client_id, year, month, today, local_now())
+
+
+@router.post("/api/clients/{client_id}/fleet/remind", response_model=RemindersOut)
+async def remind(
+    client_id: int, session: SessionDep, user: CurrentUser, today: Today
+) -> RemindersOut:
+    """Reamintire manuală pe Telegram, pentru luna în care botul primește acum datele.
+    Pleacă în câteva secunde (o trimite procesul botului)."""
+    return await ReminderService(session, user).remind(client_id, today, local_now())

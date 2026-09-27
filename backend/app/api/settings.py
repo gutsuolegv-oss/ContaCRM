@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from app.api.deps import CurrentUser, SessionDep
 from app.models import Organization
 from app.schemas.settings import OrganizationOut, OrganizationUpdate
-from app.schemas.telegram import BotSettingsOut, BotTokenIn
+from app.schemas.telegram import BotSettingsOut, BotTokenIn, ReminderSettingsIn
 from app.services.settings import SettingsService
 from app.services.telegram_bot_settings import BotSettingsService
 
@@ -38,3 +38,12 @@ async def set_telegram_bot(
     """Doar admin. Token nou: procesul botului îl verifică în câteva secunde; null: botul se
     oprește."""
     return await BotSettingsService(session, user).set_token(body.token)
+
+
+@router.put("/telegram-bot/reminders", response_model=BotSettingsOut)
+async def set_reminders(
+    body: ReminderSettingsIn, session: SessionDep, user: CurrentUser
+) -> BotSettingsOut:
+    """Doar admin: reamintirile automate (pornite sau nu) și intervalul în care pleacă
+    reamintirile, automate și manuale (zilele săptămânii și orele)."""
+    return await BotSettingsService(session, user).set_reminders(body)

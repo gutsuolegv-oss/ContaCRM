@@ -466,6 +466,11 @@ function FleetCell({
       void queryClient.invalidateQueries({ queryKey: ["waybills", clientId] });
     },
   });
+  const remind = useMutation({
+    mutationFn: () => api.post(`/api/clients/${clientId}/fleet/remind`),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["fleet-reminders", clientId] }),
+  });
   const [text, tone] =
     fleet.issued === fleet.vehicles
       ? [`${fleet.issued}/${fleet.vehicles} emise`, "ok"]
@@ -517,19 +522,33 @@ function FleetCell({
           </div>
         </div>
       )}
-      {fleet.received > 0 && (
-        <button
-          className="btn sm fleet-issue"
-          disabled={issue.isPending}
-          onClick={() => issue.mutate()}
-          title="Emite foile de parcurs pentru automobilele cu date primite"
-        >
-          Emite {fleet.received}
-        </button>
+      {(fleet.received > 0 || fleet.remindable) && (
+        <div className="fleet-actions">
+          {fleet.received > 0 && (
+            <button
+              className="btn sm fleet-issue"
+              disabled={issue.isPending}
+              onClick={() => issue.mutate()}
+              title="Emite foile de parcurs pentru automobilele cu date primite"
+            >
+              Emite {fleet.received}
+            </button>
+          )}
+          {fleet.remindable && (
+            <button
+              className="btn sm fleet-issue"
+              disabled={remind.isPending || remind.isSuccess}
+              onClick={() => remind.mutate()}
+              title="Trimite clientului pe Telegram automobilele fără date"
+            >
+              {remind.isSuccess ? "✓ trimisă" : "🔔 Reamintește"}
+            </button>
+          )}
+        </div>
       )}
-      {issue.error && (
+      {(issue.error ?? remind.error) && (
         <div className="cell-meta" style={{ color: "var(--bad)" }}>
-          {issue.error.message}
+          {(issue.error ?? remind.error)?.message}
         </div>
       )}
     </td>

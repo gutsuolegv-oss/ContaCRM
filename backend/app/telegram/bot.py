@@ -18,19 +18,26 @@ Doar chat-urile private sunt luate în seamă.
 import asyncio
 import logging
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.clock import local_today
+from app.core.clock import local_now, local_today, utc_now
+from app.db.base import RecordStatus
 from app.db.session import get_sessionmaker
 from app.models import (
     BotStatus,
     Client,
+    FleetReminder,
+    ReminderKind,
+    ReminderStatus,
     TelegramChat,
 )
 from app.services.errors import ConflictError, ServiceError
+from app.services.fleet import last_day
+from app.services.fleet_reminders import AUTO_GAP, SendWindow, linked_chats, schedule_auto
 from app.services.telegram import (
     PREVIOUS_MONTH_UNTIL_DAY,
     SavedReading,
@@ -38,8 +45,9 @@ from app.services.telegram import (
     VehicleTarget,
     month_label,
     parse_odometer,
+    reading_month,
 )
-from app.services.telegram_bot_settings import load_token, report
+from app.services.telegram_bot_settings import bot_row, load_token, report
 from app.telegram.api import BotApi, HttpBotApi, TelegramError
 
 log = logging.getLogger("contacrm.telegram")
@@ -300,6 +308,97 @@ class Bot:
         await self._ask(chat, target)
 
 
+# --- reamintiri ---
+
+
+def reminder_text(kind: ReminderKind, client: Client, year: int, month: int, today: date) -> str:
+    label = month_label(year, month)
+    if kind is ReminderKind.AUTO_REQUEST:
+        # amânată (weekend, în afara orelor): luna poate fi deja încheiată
+        ended = today > last_day(year, month)
+        intro = f"Bună ziua! Luna {label} {'s-a încheiat' if ended else 'se încheie'}."
+    elif kind is ReminderKind.AUTO_REMINDER:
+        intro = f"Reamintire: încă nu am primit kilometrajul pentru {label}."
+    else:
+        intro = f"Bună ziua! Contabilul vă roagă să transmiteți kilometrajul pentru {label}."
+    return f"{intro}\n\nPentru {client.name}, apăsați pe automobil și scrieți cifrele de pe bord:"
+
+
+async def deliver_reminders(api: BotApi, session: AsyncSession, now: datetime) -> int:
+    """Trimite reamintirile din coadă (automate și manuale), doar în intervalul de trimitere
+    din Setări. Întoarce câte au fost tratate (cele amânate rămân în coadă)."""
+    if not SendWindow.of(await bot_row(session)).contains(now):
+        await session.commit()
+        return 0
+    today = now.date()
+    queued = (
+        await session.scalars(
+            select(FleetReminder)
+            .where(FleetReminder.status == ReminderStatus.QUEUED)
+            .order_by(FleetReminder.id)
+            .limit(50)
+        )
+    ).all()
+    service = TelegramBotService(session)
+    handled = 0
+    for reminder in queued:
+        period = (reminder.year, reminder.month)
+        if reminder.kind is not ReminderKind.MANUAL:
+            recent = await session.scalar(
+                select(FleetReminder.id).where(
+                    FleetReminder.client_id == reminder.client_id,
+                    FleetReminder.year == reminder.year,
+                    FleetReminder.month == reminder.month,
+                    FleetReminder.status == ReminderStatus.SENT,
+                    FleetReminder.sent_at > utc_now() - AUTO_GAP,
+                )
+            )
+            if recent is not None:
+                continue  # clientul a primit deja un mesaj azi: mai așteaptă
+        handled += 1
+        reminder.sent_at = utc_now()
+        client = await session.get(Client, reminder.client_id)
+        if client is None or client.status != RecordStatus.ACTIVE:
+            reminder.status, reminder.note = ReminderStatus.SKIPPED, "Clientul nu mai e activ"
+        elif reading_month(today) != period:
+            reminder.status = ReminderStatus.SKIPPED
+            reminder.note = "Luna s-a schimbat între timp; botul primește date pentru altă lună"
+        else:
+            targets = [
+                t
+                for t in await service.targets(client.id, today)
+                if (t.year, t.month) == period and not t.has_reading
+            ]
+            chats = await linked_chats(session, client.id)
+            if not targets:
+                reminder.status = ReminderStatus.SKIPPED
+                reminder.note = "Toate automobilele aveau deja date"
+            elif not chats:
+                reminder.status = ReminderStatus.SKIPPED
+                reminder.note = "Clientul nu are Telegram legat"
+            else:
+                text = reminder_text(reminder.kind, client, *period, today)
+                errors = []
+                for chat in chats:
+                    try:
+                        await api.call(
+                            "sendMessage",
+                            chat_id=chat.chat_id,
+                            text=text,
+                            reply_markup=vehicle_buttons(targets),
+                        )
+                        reminder.chats += 1
+                    except TelegramError as e:
+                        errors.append(str(e))
+                reminder.vehicles = len(targets)
+                reminder.status = ReminderStatus.SENT if reminder.chats else ReminderStatus.FAILED
+                if errors:
+                    reminder.note = f"{len(errors)} chat-uri n-au primit (botul blocat?)"[:255]
+                    log.warning("Reamintirea %s: %s", reminder.id, "; ".join(errors))
+        await session.commit()
+    return handled
+
+
 # Fără token: cât așteaptă până verifică din nou Setările. Cu token: cât ține deschisă o
 # cerere getUpdates (long polling). Între ele, procesul își raportează starea în bază.
 IDLE_SECONDS = 10
@@ -374,6 +473,13 @@ async def run() -> None:
                 active = None  # tokenul a fost revocat: se reverifică de la zero
             await asyncio.sleep(5)
             continue
+        try:
+            async with sessions() as session:
+                await schedule_auto(session, local_now())
+            async with sessions() as session:
+                await deliver_reminders(api, session, local_now())
+        except Exception:
+            log.exception("Reamintirile nu au putut fi trimise")
         if healthy:
             await status()  # semn de viață
         else:

@@ -1,7 +1,7 @@
 """Jurnalul de modificări (audit_log): cine, ce, când, valorile vechi și noi."""
 
 import enum
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any
 
@@ -21,7 +21,7 @@ _IGNORED = {"created_at", "updated_at", "password_hash", "token_encrypted"}
 def _json(value: Any) -> Any:
     if isinstance(value, enum.Enum):
         return value.value
-    if isinstance(value, date | datetime):
+    if isinstance(value, date | datetime | time):
         return value.isoformat()
     if isinstance(value, Decimal):
         return str(value)  # exact, fără erorile de rotunjire ale unui float

@@ -885,6 +885,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clients/{client_id}/fleet/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Reminders
+         * @description Reamintirile trimise clientului pe lună și dacă se poate trimite una acum.
+         */
+        get: operations["fleet_reminders_api_clients__client_id__fleet_reminders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/fleet/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind
+         * @description Reamintire manuală pe Telegram, pentru luna în care botul primește acum datele.
+         *     Pleacă în câteva secunde (o trimite procesul botului).
+         */
+        post: operations["remind_api_clients__client_id__fleet_remind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -984,6 +1025,27 @@ export interface paths {
          *     oprește.
          */
         put: operations["set_telegram_bot_api_settings_telegram_bot_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/telegram-bot/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Reminders
+         * @description Doar admin: reamintirile automate (pornite sau nu) și intervalul în care pleacă
+         *     reamintirile, automate și manuale (zilele săptămânii și orele).
+         */
+        put: operations["set_reminders_api_settings_telegram_bot_reminders_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1152,6 +1214,20 @@ export interface components {
             checked_at: string | null;
             /** Running */
             running: boolean;
+            /** Auto Reminders */
+            auto_reminders: boolean;
+            /** Reminder Weekdays */
+            reminder_weekdays: number[];
+            /**
+             * Reminder From
+             * Format: time
+             */
+            reminder_from: string;
+            /**
+             * Reminder To
+             * Format: time
+             */
+            reminder_to: string;
         };
         /**
          * BotStatus
@@ -1625,6 +1701,11 @@ export interface components {
             missing: number;
             /** Late */
             late: boolean;
+            /**
+             * Remindable
+             * @default false
+             */
+            remindable: boolean;
             /** Items */
             items: components["schemas"]["FleetVehicleBrief"][];
         };
@@ -1910,6 +1991,84 @@ export interface components {
          * @enum {string}
          */
         RecordStatus: "active" | "archived";
+        /**
+         * ReminderKind
+         * @enum {string}
+         */
+        ReminderKind: "auto_request" | "auto_reminder" | "manual";
+        /** ReminderOut */
+        ReminderOut: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["ReminderKind"];
+            status: components["schemas"]["ReminderStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /** Sent At */
+            sent_at: string | null;
+            /** Chats */
+            chats: number;
+            /** Vehicles */
+            vehicles: number;
+            /** Note */
+            note: string | null;
+        };
+        /**
+         * ReminderSettingsIn
+         * @description Reamintirile pentru odometru: cele automate pornite sau nu și intervalul în care pleacă
+         *     toate (automate și manuale).
+         */
+        ReminderSettingsIn: {
+            /** Auto Reminders */
+            auto_reminders: boolean;
+            /** Weekdays */
+            weekdays: number[];
+            /**
+             * Start
+             * Format: time
+             */
+            start: string;
+            /**
+             * End
+             * Format: time
+             */
+            end: string;
+        };
+        /**
+         * ReminderStatus
+         * @enum {string}
+         */
+        ReminderStatus: "queued" | "sent" | "skipped" | "failed";
+        /**
+         * RemindersOut
+         * @description Reamintirile unui client pe o lună și dacă se poate trimite una acum.
+         */
+        RemindersOut: {
+            /** Remind Year */
+            remind_year: number;
+            /** Remind Month */
+            remind_month: number;
+            /** Can Remind */
+            can_remind: boolean;
+            /** Blocker */
+            blocker: string | null;
+            /** Send Window */
+            send_window: string;
+            /** Window Open */
+            window_open: boolean;
+            /**
+             * Next Send At
+             * Format: date-time
+             */
+            next_send_at: string;
+            /** Reminders */
+            reminders: components["schemas"]["ReminderOut"][];
+        };
         /** ReportTypeBrief */
         ReportTypeBrief: {
             /** Id */
@@ -4670,6 +4829,71 @@ export interface operations {
             };
         };
     };
+    fleet_reminders_api_clients__client_id__fleet_reminders_get: {
+        parameters: {
+            query: {
+                year: number;
+                month: number;
+            };
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remind_api_clients__client_id__fleet_remind_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_api_users_get: {
         parameters: {
             query?: {
@@ -4950,6 +5174,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BotTokenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_reminders_api_settings_telegram_bot_reminders_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderSettingsIn"];
             };
         };
         responses: {

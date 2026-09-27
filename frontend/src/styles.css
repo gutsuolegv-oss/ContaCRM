@@ -2993,3 +2993,51 @@ table.matrix td.fleet-cell {
   margin-right: 3px;
   vertical-align: 1px;
 }
+
+/* Parc auto: reamintirile pe Telegram */
+.reminders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reminders-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.reminders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.reminders-list > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Setări: reamintirile pentru kilometraj */
+.reminder-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.check-line {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+.check-line input {
+  margin-top: 3px;
+}
+.check-line .muted {
+  display: block;
+  font-size: 12px;
+}
+.day-picker button {
+  min-width: 34px;
+}

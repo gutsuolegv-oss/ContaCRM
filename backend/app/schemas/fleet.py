@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, Field, PlainSerializer
 
 from app.db.base import RecordStatus
-from app.models import FuelType, ReadingSource
+from app.models import FuelType, ReadingSource, ReminderKind, ReminderStatus
 from app.schemas.clients import Optional255
 from app.schemas.common import InputModel, Name100, ORMModel
 
@@ -142,7 +142,33 @@ class FleetSummaryOut(InputModel):
     received: int  # odometru primit, foaie neemisă încă
     missing: int  # fără odometru
     late: bool  # lipsesc date și luna s-a încheiat
+    remindable: bool = False  # se poate trimite acum o reamintire pe Telegram
     items: list[FleetVehicleBrief]
+
+
+class ReminderOut(ORMModel):
+    id: int
+    kind: ReminderKind
+    status: ReminderStatus
+    created_at: datetime
+    created_by_name: str | None = None  # doar la cele manuale
+    sent_at: datetime | None
+    chats: int
+    vehicles: int
+    note: str | None
+
+
+class RemindersOut(InputModel):
+    """Reamintirile unui client pe o lună și dacă se poate trimite una acum."""
+
+    remind_year: int  # luna pentru care botul primește acum datele
+    remind_month: int
+    can_remind: bool
+    blocker: str | None  # de ce nu se poate (afișat lângă butonul dezactivat)
+    send_window: str  # intervalul de trimitere, ex. „L-V, 09:00-18:00”
+    window_open: bool  # o reamintire ar pleca acum
+    next_send_at: datetime  # când pleacă următoarea (acum, dacă intervalul e deschis)
+    reminders: list[ReminderOut]
 
 
 class FleetMonthOut(InputModel):

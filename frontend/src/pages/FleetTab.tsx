@@ -11,6 +11,7 @@ import type {
   FleetMonthOut,
   FleetRowOut,
   ReadingIn,
+  RemindersOut,
   TelegramStatusOut,
   VehicleCreate,
   VehicleOut,
@@ -215,10 +216,11 @@ export function FleetTab({ client }: { client: ClientOut }) {
             <b>
               {late} {late === 1 ? "automobil" : "automobile"} fără date la odometru
             </b>{" "}
-            după încheierea lunii. Cere-le clientului și introdu-le manual.
+            după încheierea lunii. Trimite o reamintire pe Telegram sau introdu datele manual.
           </div>
         </div>
       )}
+      <RemindersBar clientId={client.id} period={period} />
 
       <div className="card" style={{ boxShadow: "none" }}>
         <div className="table-wrap">
@@ -357,6 +359,119 @@ export function FleetTab({ client }: { client: ClientOut }) {
         <TelegramCard clientId={client.id} />
       </div>
       {modals}
+    </div>
+  );
+}
+
+// --- Reamintiri ---
+
+const REMINDER_KIND: Record<RemindersOut["reminders"][number]["kind"], string> = {
+  auto_request: "cerere automată (sfârșit de lună)",
+  auto_reminder: "reamintire automată",
+  manual: "reamintire manuală",
+};
+
+/** „luni, 09:00” (sau „azi, 09:00” / „mâine, 09:00”). */
+function whenLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const days = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
+      86_400_000,
+  );
+  const day =
+    days === 0
+      ? "azi"
+      : days === 1
+        ? "mâine"
+        : ["duminică", "luni", "marți", "miercuri", "joi", "vineri", "sâmbătă"][d.getDay()];
+  return `${day}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function reminderResult(
+  r: RemindersOut["reminders"][number],
+  overview: RemindersOut,
+): [string, string] {
+  if (r.status === "queued")
+    return overview.window_open
+      ? ["se trimite…", "b-grey"]
+      : [`programată: ${whenLabel(overview.next_send_at)}`, "b-warn"];
+  if (r.status === "sent")
+    return [`trimisă la ${r.chats} ${r.chats === 1 ? "chat" : "chat-uri"}`, "b-ok"];
+  if (r.status === "failed") return ["nu a ajuns", "b-bad"];
+  return ["nu a fost nevoie", "b-grey"];
+}
+
+function dateTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Reamintirile pe Telegram pentru luna aleasă: butonul manual și istoricul. */
+function RemindersBar({ clientId, period }: { clientId: number; period: Period }) {
+  const queryClient = useQueryClient();
+  const key = ["fleet-reminders", clientId, period.year, period.month];
+  const data = useQuery({
+    queryKey: key,
+    queryFn: () =>
+      api.get<RemindersOut>(`/api/clients/${clientId}/fleet/reminders`, {
+        year: period.year,
+        month: period.month,
+      }),
+    // cât timp o reamintire e în coadă, starea se reîmprospătează des
+    refetchInterval: (q) =>
+      q.state.data?.reminders.some((r) => r.status === "queued") ? 3000 : false,
+  });
+  const remind = useMutation({
+    mutationFn: () => api.post<RemindersOut>(`/api/clients/${clientId}/fleet/remind`),
+    onSuccess: (result) => {
+      queryClient.setQueryData(key, result);
+      void queryClient.invalidateQueries({ queryKey: ["grid"] });
+    },
+  });
+  const r = data.data;
+  if (!r) return null;
+
+  return (
+    <div className="reminders">
+      <div className="reminders-head">
+        <button
+          className="btn sm"
+          disabled={!r.can_remind || remind.isPending}
+          title={r.blocker ?? "Trimite clientului pe Telegram automobilele fără date"}
+          onClick={() => remind.mutate()}
+        >
+          🔔 Reamintește pe Telegram
+        </button>
+        <span className="muted" style={{ fontSize: 12 }}>
+          {r.blocker ??
+            (r.window_open
+              ? "Clientul primește în bot butoane cu automobilele fără date."
+              : `Acum e în afara intervalului de trimitere; pleacă ${whenLabel(r.next_send_at)}.`)}{" "}
+          Automat: ultima zi a lunii la 15:00 și pe 3 la 10:00 · se trimit {r.send_window}.
+        </span>
+      </div>
+      {remind.error && <div className="error">{remind.error.message}</div>}
+      {r.reminders.length > 0 && (
+        <div className="reminders-list">
+          {r.reminders.map((x) => {
+            const [label, cls] = reminderResult(x, r);
+            return (
+              <div key={x.id} title={x.note ?? undefined}>
+                <span className="muted mono">{dateTime(x.sent_at ?? x.created_at)}</span>
+                <span>
+                  {REMINDER_KIND[x.kind]}
+                  {x.created_by_name && ` · ${x.created_by_name}`}
+                </span>
+                <span className={`badge ${cls}`}>{label}</span>
+                {x.note && <span className="muted">{x.note}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

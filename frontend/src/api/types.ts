@@ -39,3 +39,5 @@ export type OrganizationOut = S["OrganizationOut"];
 export type OrganizationUpdate = S["OrganizationUpdate"];
 export type TelegramStatusOut = S["TelegramStatusOut"];
 export type BotSettingsOut = S["BotSettingsOut"];
+export type RemindersOut = S["RemindersOut"];
+export type ReminderOut = S["ReminderOut"];

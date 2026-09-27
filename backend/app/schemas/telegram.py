@@ -1,9 +1,9 @@
 """Schemele API pentru legarea clienților de Telegram."""
 
-from datetime import datetime
-from typing import Annotated
+from datetime import datetime, time
+from typing import Annotated, Self
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from app.models import BotStatus
 from app.schemas.common import InputModel, ORMModel
@@ -43,3 +43,28 @@ class BotSettingsOut(BaseModel):
     status_message: str | None
     checked_at: datetime | None
     running: bool  # procesul botului a dat semn de viață recent
+    auto_reminders: bool  # reamintirile automate pentru odometru
+    reminder_weekdays: list[int]  # 1 = luni … 7 = duminică
+    reminder_from: time
+    reminder_to: time
+
+
+class ReminderSettingsIn(InputModel):
+    """Reamintirile pentru odometru: cele automate pornite sau nu și intervalul în care pleacă
+    toate (automate și manuale)."""
+
+    auto_reminders: bool
+    weekdays: Annotated[list[Annotated[int, Field(ge=1, le=7)]], Field(min_length=1, max_length=7)]
+    start: time
+    end: time
+
+    @field_validator("weekdays")
+    @classmethod
+    def _unique_sorted(cls, v: list[int]) -> list[int]:
+        return sorted(set(v))
+
+    @model_validator(mode="after")
+    def _window(self) -> Self:
+        if self.start >= self.end:
+            raise ValueError("ora de început trebuie să fie înaintea celei de sfârșit")
+        return self

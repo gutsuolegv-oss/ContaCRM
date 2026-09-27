@@ -51,6 +51,7 @@ from app.services.errors import (
     conflict_guard,
 )
 from app.services.fleet import month_summaries
+from app.services.fleet_reminders import remind_blockers
 from app.services.periods import period_bounds, periods_ending_in
 
 # Termenul poate fi cu până la 24 de luni după sfârșitul perioadei (deadline_month_offset).
@@ -269,7 +270,9 @@ class GridService:
             for a in assignments:
                 rows[a.client_id].accountants.append(AccountantBrief.model_validate(a.user))
             fleets = await month_summaries(self.session, list(rows), year, month, today)
+            blockers = await remind_blockers(self.session, list(fleets), year, month, today)
             for client_id, fleet in fleets.items():
+                fleet.remindable = blockers[client_id] is None
                 rows[client_id].fleet = fleet
         ordered = sorted(columns.values(), key=lambda rt: (rt.sort_order, rt.code, rt.id))
         return GridOut(

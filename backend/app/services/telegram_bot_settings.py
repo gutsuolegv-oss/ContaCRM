@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.clock import utc_now
 from app.core.secrets import decrypt, encrypt
 from app.models import BotStatus, TelegramBot, User, UserRole
-from app.schemas.telegram import BotSettingsOut
+from app.schemas.telegram import BotSettingsOut, ReminderSettingsIn
 from app.services.audit import AuditService, snapshot
 from app.services.errors import ForbiddenError
 
@@ -40,6 +40,10 @@ def settings_out(row: TelegramBot, now: datetime) -> BotSettingsOut:
         status_message=row.status_message,
         checked_at=row.checked_at,
         running=row.checked_at is not None and now - row.checked_at < RUNNING_WINDOW,
+        auto_reminders=row.auto_reminders,
+        reminder_weekdays=sorted(row.reminder_weekdays),
+        reminder_from=row.reminder_from,
+        reminder_to=row.reminder_to,
     )
 
 
@@ -77,6 +81,20 @@ class BotSettingsService:
         row.username = None
         row.status = BotStatus.PENDING if token else BotStatus.NOT_CONFIGURED
         row.status_message = None
+        row.updated_by = self.actor.id
+        await self.session.flush()
+        self.audit.changed(row, before)
+        await self.session.commit()
+        return settings_out(row, utc_now())
+
+    async def set_reminders(self, data: ReminderSettingsIn) -> BotSettingsOut:
+        self._require(UserRole.ADMIN)
+        row = await bot_row(self.session)
+        before = snapshot(row)
+        row.auto_reminders = data.auto_reminders
+        row.reminder_weekdays = data.weekdays
+        row.reminder_from = data.start.replace(second=0, microsecond=0)
+        row.reminder_to = data.end.replace(second=0, microsecond=0)
         row.updated_by = self.actor.id
         await self.session.flush()
         self.audit.changed(row, before)
