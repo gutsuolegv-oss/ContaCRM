@@ -17,10 +17,12 @@ export function formatMonth(year: number, month: number): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** Inițialele denumirii, fără forma juridică: „Agro-Nord SRL” → „AN”. */
 export function initials(name: string): string {
   return name
-    .replace(/^ÎI /, "")
-    .split(/\s+/)
+    .replace(/^(ÎI|II|GȚ)\s+/, "")
+    .replace(/\s+(SRL|SA|ONG)$/, "")
+    .split(/[\s-]+/)
     .slice(0, 2)
     .map((w) => w.charAt(0).toUpperCase())
     .join("");

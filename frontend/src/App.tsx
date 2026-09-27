@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { ClientPage } from "./pages/ClientPage";
 import { ClientsPage } from "./pages/ClientsPage";
+import { GridPage } from "./pages/GridPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewClientPage } from "./pages/NewClientPage";
 import { Placeholder } from "./pages/Placeholder";
@@ -35,7 +36,7 @@ const router = createBrowserRouter([
           { path: "clienti", element: <ClientsPage /> },
           { path: "clienti/nou", element: <NewClientPage /> },
           { path: "clienti/:id", element: <ClientPage /> },
-          { path: "grila", element: <Placeholder title="Grila lunii" /> },
+          { path: "grila", element: <GridPage /> },
           { path: "clasificator", element: <Placeholder title="Clasificator" /> },
           { path: "utilizatori", element: <Placeholder title="Utilizatori" /> },
           { path: "*", element: <Placeholder title="Pagina nu există" /> },

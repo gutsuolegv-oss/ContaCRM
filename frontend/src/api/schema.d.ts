@@ -1251,6 +1251,8 @@ export interface components {
         EntryStepOut: {
             /** Step Id */
             step_id: number;
+            /** Status Set Id */
+            status_set_id: number;
             /** Code */
             code: string;
             /** Name */
