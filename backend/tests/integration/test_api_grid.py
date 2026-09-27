@@ -1,42 +1,19 @@
-from collections.abc import AsyncIterator
 from datetime import date
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_today
-from app.db.session import get_session
-from app.main import create_app
 from app.models import Client, Status, StatusSet, User, UserRole
 from app.seed.classifier import seed_classifier
 from app.services.matrix import MatrixService
 from tests.integration.conftest import AuthHeaders
 from tests.integration.factories import assign, make_client
 
-TODAY = date(2026, 9, 27)
 SEPT = {"year": 2026, "month": 9}
 AUG = {"year": 2026, "month": 8}
-
-
-@pytest.fixture
-async def api(session: AsyncSession) -> AsyncIterator[AsyncClient]:
-    """Client HTTP cu „azi” fixat la 27.09.2026."""
-    app: FastAPI = create_app()
-
-    async def _session() -> AsyncIterator[AsyncSession]:
-        yield session
-
-    async def _today() -> date:
-        return TODAY
-
-    app.dependency_overrides[get_session] = _session
-    app.dependency_overrides[get_today] = _today
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
 
 
 class World:
