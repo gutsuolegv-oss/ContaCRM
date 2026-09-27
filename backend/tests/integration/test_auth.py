@@ -63,6 +63,7 @@ async def test_login_and_me(client: AsyncClient, make_user: MakeUser) -> None:
         "email": "ana@birou.md",
         "full_name": "Ana",
         "role": "contabil",
+        "must_change_password": False,
     }
     assert user.last_login_at is not None
 

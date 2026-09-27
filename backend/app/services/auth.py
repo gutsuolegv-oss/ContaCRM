@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
 from app.core.config import get_settings
+from app.models import User
 from app.repositories.refresh_token import RefreshTokenRepository
 from app.repositories.user import UserRepository
 
@@ -40,7 +41,7 @@ class AuthService:
         if security.password_needs_rehash(user.password_hash):
             user.password_hash = security.hash_password(password)
         user.last_login_at = now
-        pair = self._issue(user.id, now)
+        pair = self._issue(user.id, user.session_version, now)
         await self.session.commit()
         return pair
 
@@ -55,11 +56,12 @@ class AuthService:
             await self.tokens.revoke_all_for_user(token.user_id, now)
             await self.session.commit()
             raise AuthError
-        if token.expires_at <= now or await self.users.get_active(token.user_id) is None:
+        user = await self.users.get_active(token.user_id)
+        if token.expires_at <= now or user is None:
             raise AuthError
 
         token.revoked_at = now
-        pair = self._issue(token.user_id, now)
+        pair = self._issue(user.id, user.session_version, now)
         await self.session.commit()
         return pair
 
@@ -69,7 +71,13 @@ class AuthService:
             token.revoked_at = datetime.now(UTC)
             await self.session.commit()
 
-    def _issue(self, user_id: int, now: datetime) -> TokenPair:
+    async def issue_after_password_change(self, user: User, now: datetime) -> TokenPair:
+        """Sesiune nouă imediat după schimbarea parolei (cele vechi au fost închise)."""
+        pair = self._issue(user.id, user.session_version, now)
+        await self.session.commit()
+        return pair
+
+    def _issue(self, user_id: int, session_version: int, now: datetime) -> TokenPair:
         settings = get_settings()
         raw = security.new_refresh_token()
         self.tokens.add(
@@ -78,7 +86,7 @@ class AuthService:
             now + timedelta(days=settings.refresh_token_ttl_days),
         )
         return TokenPair(
-            access_token=security.create_access_token(user_id, now),
+            access_token=security.create_access_token(user_id, now, session_version),
             refresh_token=raw,
             expires_in=settings.access_token_ttl_minutes * 60,
         )

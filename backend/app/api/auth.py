@@ -1,9 +1,12 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import SessionDep, UserPendingPasswordChange
+from app.core.clock import utc_now
 from app.models import User
 from app.schemas.auth import LoginIn, RefreshIn, TokenPairOut, UserOut
+from app.schemas.users import PasswordChange
 from app.services.auth import AuthError, AuthService, TokenPair
+from app.services.users import UserService
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -40,5 +43,14 @@ async def logout(body: RefreshIn, session: SessionDep) -> None:
 
 
 @router.get("/me", response_model=UserOut)
-async def me(user: CurrentUser) -> User:
+async def me(user: UserPendingPasswordChange) -> User:
+    """Merge și când parola trebuie schimbată (`must_change_password`)."""
     return user
+
+
+@router.post("/change-password", response_model=TokenPairOut)
+async def change_password(
+    body: PasswordChange, session: SessionDep, user: UserPendingPasswordChange
+) -> TokenPairOut:
+    """Închide toate sesiunile, inclusiv pe alte dispozitive, și întoarce o sesiune nouă."""
+    return _out(await UserService(session, user).change_own_password(body, utc_now()))

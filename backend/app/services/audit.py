@@ -10,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import Base
 from app.models import AuditAction, AuditLog, User
 
-# Se schimbă la orice scriere; nu spun nimic despre ce s-a modificat.
-_IGNORED = {"created_at", "updated_at"}
+# created_at / updated_at: se schimbă la orice scriere, nu spun ce s-a modificat.
+# password_hash: nu ajunge niciodată în jurnal (în audit se vede schimbarea parolei prin
+# session_version / must_change_password).
+_IGNORED = {"created_at", "updated_at", "password_hash"}
 
 
 def _json(value: Any) -> Any:

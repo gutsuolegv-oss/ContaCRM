@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, SoftDeleteMixin, TimestampMixin, str_enum
@@ -33,6 +33,12 @@ class User(IdMixin, TimestampMixin, SoftDeleteMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(str_enum(UserRole, "role"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Parola a fost setată de admin (cont nou / resetare): până o schimbă, utilizatorul poate
+    # doar să-și vadă profilul și să-și schimbe parola.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Versiunea sesiunilor, copiată în fiecare access token. Crește la schimbarea sau
+    # resetarea parolei și la arhivare: tokenurile cu versiune veche sunt refuzate.
+    session_version: Mapped[int] = mapped_column(Integer, server_default=text("0"))
 
 
 class RefreshToken(IdMixin, Base):
