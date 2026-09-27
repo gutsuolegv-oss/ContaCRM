@@ -35,3 +35,5 @@ export type FleetRowOut = S["FleetRowOut"];
 export type ReadingIn = S["ReadingIn"];
 export type ReadingOut = S["ReadingOut"];
 export type WaybillOut = S["WaybillOut"];
+export type OrganizationOut = S["OrganizationOut"];
+export type OrganizationUpdate = S["OrganizationUpdate"];

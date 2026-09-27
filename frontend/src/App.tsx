@@ -12,6 +12,7 @@ import { GridPage } from "./pages/GridPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewClientPage } from "./pages/NewClientPage";
 import { NotFound } from "./pages/NotFound";
+import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
 
 const queryClient = new QueryClient({
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
           { path: "grila", element: <GridPage /> },
           { path: "clasificator", element: <ClassifierPage /> },
           { path: "utilizatori", element: <UsersPage /> },
+          { path: "setari", element: <SettingsPage /> },
           { path: "*", element: <NotFound /> },
         ],
       },

@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
+import { api } from "../api/client";
+import type { OrganizationOut } from "../api/types";
 import { ROLE_LABEL, isEditor, useAuth, useMe } from "../auth/useAuth";
 import { isDarkTheme, toggleTheme } from "../theme";
 import { Icon, type IconName } from "./Icon";
@@ -22,6 +25,11 @@ export function Layout() {
   const [dark, setDark] = useState(isDarkTheme);
   const [q, setQ] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const org = useQuery({
+    queryKey: ["organization"],
+    queryFn: () => api.get<OrganizationOut>("/api/settings/organization"),
+    staleTime: Infinity,
+  });
 
   const work: NavItem[] = [
     { to: "/grila", label: "Grila lunii", icon: "grid" },
@@ -30,6 +38,7 @@ export function Layout() {
   const admin: NavItem[] = [
     { to: "/clasificator", label: "Clasificator", icon: "layers" },
     { to: "/utilizatori", label: "Utilizatori", icon: "team", show: isEditor(me) },
+    { to: "/setari", label: "Setări", icon: "settings" },
   ];
 
   // meniul mobil se închide la schimbarea paginii
@@ -69,7 +78,7 @@ export function Layout() {
           <div className="brand-mark">C</div>
           <div>
             ContaCRM
-            <small>Birou contabil</small>
+            <small>{org.data?.name ?? "Birou contabil"}</small>
           </div>
         </div>
         <div className="nav-label">Lucru</div>

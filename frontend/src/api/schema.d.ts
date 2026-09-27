@@ -947,6 +947,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Organization */
+        get: operations["get_organization_api_settings_organization_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Organization */
+        patch: operations["update_organization_api_settings_organization_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1552,6 +1570,61 @@ export interface components {
          * @enum {string}
          */
         Op: "eq" | "ne" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "is_null";
+        /** OrganizationOut */
+        OrganizationOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Full Name */
+            full_name: string | null;
+            /** Idno */
+            idno: string | null;
+            /** Vat Code */
+            vat_code: string | null;
+            /** Legal Address */
+            legal_address: string | null;
+            /** Phone */
+            phone: string | null;
+            /** Email */
+            email: string | null;
+            /** Website */
+            website: string | null;
+            /** Director Name */
+            director_name: string | null;
+            /** Bank Name */
+            bank_name: string | null;
+            /** Iban */
+            iban: string | null;
+        };
+        /**
+         * OrganizationUpdate
+         * @description Doar câmpurile trimise se modifică; `null` golește un câmp opțional.
+         */
+        OrganizationUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Full Name */
+            full_name?: string | null;
+            /** Idno */
+            idno?: string | null;
+            /** Vat Code */
+            vat_code?: string | null;
+            /** Legal Address */
+            legal_address?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Director Name */
+            director_name?: string | null;
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Iban */
+            iban?: string | null;
+        };
         /** PasswordChange */
         PasswordChange: {
             /** Current Password */
@@ -4606,6 +4679,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_organization_api_settings_organization_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationOut"];
+                };
+            };
+        };
+    };
+    update_organization_api_settings_organization_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationOut"];
                 };
             };
             /** @description Validation Error */
