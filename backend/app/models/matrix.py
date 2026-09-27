@@ -15,9 +15,10 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, IdMixin, TimestampMixin, str_enum
+from app.models.classifier import ReportType
 
 
 class ObligationSource(enum.StrEnum):
@@ -45,3 +46,5 @@ class ClientReportType(IdMixin, TimestampMixin, Base):
     created_by: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT")
     )
+
+    report_type: Mapped[ReportType] = relationship(lazy="raise")

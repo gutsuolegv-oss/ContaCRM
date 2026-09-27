@@ -23,7 +23,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, IdMixin, TimestampMixin, str_enum
 
@@ -66,6 +66,11 @@ class StatusSet(IdMixin, TimestampMixin, Base):
 
     code: Mapped[str] = mapped_column(String(50), unique=True)
     name: Mapped[str] = mapped_column(String(200))
+
+    # lazy="raise": în async, relațiile se încarcă explicit (selectinload), nu la acces.
+    statuses: Mapped[list["Status"]] = relationship(
+        order_by="(Status.sort_order, Status.id)", lazy="raise"
+    )
 
 
 class Status(IdMixin, TimestampMixin, Base):
@@ -138,6 +143,13 @@ class ReportType(IdMixin, TimestampMixin, Base):
     valid_to: Mapped[date | None] = mapped_column(Date)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     sort_order: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+
+    steps: Mapped[list["ReportTypeStep"]] = relationship(
+        order_by="(ReportTypeStep.sort_order, ReportTypeStep.id)", lazy="raise"
+    )
+    rules: Mapped[list["ReportRule"]] = relationship(
+        order_by="(ReportRule.priority.desc(), ReportRule.id)", lazy="raise"
+    )
 
 
 class ReportTypeStep(IdMixin, TimestampMixin, Base):

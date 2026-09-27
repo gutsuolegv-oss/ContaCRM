@@ -43,11 +43,14 @@ class RecalculateDiff(ORMModel):
     to_add: rapoarte noi, de atribuit automat
     to_deactivate: obligații automate pe care regulile nu le mai dau
     unchanged: obligații automate confirmate de reguli
-    manual: obligații manuale — recalcularea nu le atinge
+    manual: atribuite manual; recalcularea nu le atinge
+    manual_excluded: dezactivate de om; recalcularea nu le readaugă
     """
 
     client_id: int
+    as_of: date
     to_add: list[ReportTypeBrief]
     to_deactivate: list[ReportTypeBrief]
     unchanged: list[ReportTypeBrief]
     manual: list[ReportTypeBrief]
+    manual_excluded: list[ReportTypeBrief]
