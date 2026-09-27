@@ -104,6 +104,7 @@ def entry_out(entry: ReportEntry, today: date) -> EntryOut:
         steps=[
             EntryStepOut(
                 step_id=s.step_id,
+                status_set_id=s.step.status_set_id,
                 code=s.step.code,
                 name=s.step.name,
                 is_required=s.step.is_required,

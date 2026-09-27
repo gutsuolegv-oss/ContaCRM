@@ -30,6 +30,7 @@ class StatusBrief(ORMModel):
 
 class EntryStepOut(ORMModel):
     step_id: int
+    status_set_id: int  # opțiunile posibile pentru status (GET /api/classifiers/status-sets)
     code: str
     name: str
     is_required: bool
