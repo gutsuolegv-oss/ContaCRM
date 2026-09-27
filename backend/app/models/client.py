@@ -14,9 +14,10 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, IdMixin, SoftDeleteMixin, TimestampMixin, str_enum
+from app.models.user import User
 
 
 class LegalForm(enum.StrEnum):
@@ -74,6 +75,17 @@ class Client(IdMixin, TimestampMixin, SoftDeleteMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT")
+    )
+
+    # Toate rândurile, inclusiv cele șterse logic / închise; filtrarea o face interogarea.
+    bank_accounts: Mapped[list["ClientBankAccount"]] = relationship(
+        order_by="(ClientBankAccount.is_primary.desc(), ClientBankAccount.id)", lazy="raise"
+    )
+    contacts: Mapped[list["ClientContact"]] = relationship(
+        order_by="(ClientContact.is_primary.desc(), ClientContact.id)", lazy="raise"
+    )
+    assignments: Mapped[list["ClientAssignment"]] = relationship(
+        order_by="ClientAssignment.assigned_at", lazy="raise"
     )
 
 
@@ -163,3 +175,5 @@ class ClientAssignment(IdMixin, Base):
     unassigned_by: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT")
     )
+
+    user: Mapped[User] = relationship(foreign_keys=[user_id], lazy="raise")
