@@ -8,15 +8,15 @@ import { isEditor, useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
 import { formatDate } from "../format";
 import { describeCondition, type Condition } from "../rules";
-
-const PERIODICITY: Record<string, string> = {
-  lunar: "lunar",
-  trimestrial: "trimestrial",
-  semestrial: "semestrial",
-  anual: "anual",
-  la_cerere: "la cerere",
-};
-const MONTHS = ["ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sep", "oct", "nov", "dec"];
+import {
+  AddRuleButton,
+  MONTHS,
+  PERIODICITY,
+  ReportTypeFormModal,
+  RetireButton,
+  RuleActions,
+  StepsEditor,
+} from "./ReportTypeEditors";
 
 function deadlineText(rt: ReportTypeOut): string {
   if (rt.deadline_rule === "manual") return "fără termen";
@@ -33,8 +33,10 @@ function deadlineText(rt: ReportTypeOut): string {
 }
 
 export function ClassifierPage() {
+  const me = useMe();
   const [selected, setSelected] = useState<number | null>(null);
   const [showRetired, setShowRetired] = useState(false);
+  const [creating, setCreating] = useState(false);
   const categories = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.get<CategoryOut[]>("/api/classifiers/categories"),
@@ -59,15 +61,32 @@ export function ClassifierPage() {
             Catalogul rapoartelor, termenele lor și regulile care decid ce client ce raport are.
           </p>
         </div>
-        <label className="who" style={{ fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={showRetired}
-            onChange={(e) => setShowRetired(e.target.checked)}
-          />
-          arată și rapoartele retrase
-        </label>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <label className="who" style={{ fontSize: 13 }}>
+            <input
+              type="checkbox"
+              checked={showRetired}
+              onChange={(e) => setShowRetired(e.target.checked)}
+            />
+            arată și rapoartele retrase
+          </label>
+          {isEditor(me) && (
+            <button className="btn primary" onClick={() => setCreating(true)}>
+              + Raport nou
+            </button>
+          )}
+        </div>
       </div>
+      {creating && (
+        <ReportTypeFormModal
+          categories={categories.data.filter((c) => c.is_active)}
+          onClose={() => setCreating(false)}
+          onSaved={(rt) => {
+            setCreating(false);
+            setSelected(rt.id);
+          }}
+        />
+      )}
       <div className="grid g-main" style={{ alignItems: "start" }}>
         <div className="stack">
           {categories.data.map((cat) => {
@@ -122,7 +141,7 @@ export function ClassifierPage() {
           {selected === null ? (
             <div className="empty">Alege un raport din listă ca să-i vezi etapele și regulile.</div>
           ) : (
-            <ReportTypeDetail id={selected} />
+            <ReportTypeDetail id={selected} categories={categories.data} />
           )}
         </div>
       </div>
@@ -130,8 +149,10 @@ export function ClassifierPage() {
   );
 }
 
-function ReportTypeDetail({ id }: { id: number }) {
+function ReportTypeDetail({ id, categories }: { id: number; categories: CategoryOut[] }) {
   const me = useMe();
+  const editor = isEditor(me);
+  const [editing, setEditing] = useState(false);
   const detail = useQuery({
     queryKey: ["report-type", id],
     queryFn: () => api.get<ReportTypeDetailOut>(`/api/classifiers/report-types/${id}`),
@@ -155,16 +176,34 @@ function ReportTypeDetail({ id }: { id: number }) {
 
   return (
     <div className="card-b stack">
-      <div>
-        <div className="strong" style={{ fontSize: 16 }}>
-          {rt.code} · {rt.name}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <div>
+          <div className="strong" style={{ fontSize: 16 }}>
+            {rt.code} · {rt.name}
+          </div>
+          {rt.full_name && (
+            <div className="muted" style={{ marginTop: 4 }}>
+              {rt.full_name}
+            </div>
+          )}
         </div>
-        {rt.full_name && (
-          <div className="muted" style={{ marginTop: 4 }}>
-            {rt.full_name}
+        {editor && (
+          <div style={{ display: "flex", gap: 4, alignItems: "start" }}>
+            <button className="btn sm" onClick={() => setEditing(true)}>
+              Editează
+            </button>
+            <RetireButton rt={rt} />
           </div>
         )}
       </div>
+      {editing && (
+        <ReportTypeFormModal
+          reportType={rt}
+          categories={categories.filter((c) => c.is_active || c.id === rt.category_id)}
+          onClose={() => setEditing(false)}
+          onSaved={() => setEditing(false)}
+        />
+      )}
       <dl className="dl" style={{ gridTemplateColumns: "120px 1fr", fontSize: 13 }}>
         <dt>Autoritate</dt>
         <dd>{rt.authority ?? "—"}</dd>
@@ -174,6 +213,14 @@ function ReportTypeDetail({ id }: { id: number }) {
         <dd>{PERIODICITY[rt.periodicity]}</dd>
         <dt>Termen</dt>
         <dd>{deadlineText(rt)} (mutat pe prima zi lucrătoare)</dd>
+        <dt>Plată</dt>
+        <dd>{rt.requires_payment ? "da" : "nu"}</dd>
+        <dt>Notificări</dt>
+        <dd>
+          {rt.notify_days_before.length
+            ? `cu ${rt.notify_days_before.join(", ")} zile înainte`
+            : "—"}
+        </dd>
         <dt>Valabil</dt>
         <dd>
           din {formatDate(rt.valid_from)}
@@ -185,19 +232,25 @@ function ReportTypeDetail({ id }: { id: number }) {
         <div className="strong" style={{ marginBottom: 6 }}>
           Etape în grilă
         </div>
-        {rt.steps.length === 0 && <div className="muted">Nicio etapă.</div>}
-        {rt.steps.map((s) => (
-          <div key={s.id} style={{ fontSize: 13, marginBottom: 4 }}>
-            {s.name}{" "}
-            <span className="muted">
-              (
-              {setName(s.status_set_id)
-                ?.statuses.map((st) => st.name)
-                .join(" → ")}
-              )
-            </span>
-          </div>
-        ))}
+        {editor && statusSets.data ? (
+          <StepsEditor rt={rt} statusSets={statusSets.data} />
+        ) : (
+          <>
+            {rt.steps.length === 0 && <div className="muted">Nicio etapă.</div>}
+            {rt.steps.map((s) => (
+              <div key={s.id} style={{ fontSize: 13, marginBottom: 4 }}>
+                {s.name}{" "}
+                <span className="muted">
+                  (
+                  {setName(s.status_set_id)
+                    ?.statuses.map((st) => st.name)
+                    .join(" → ")}
+                  )
+                </span>
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       <div>
@@ -220,6 +273,7 @@ function ReportTypeDetail({ id }: { id: number }) {
               · prioritate {rule.priority}
               {!rule.is_active && " · inactivă"}
             </span>
+            {editor && <RuleActions rule={rule} />}
           </div>
         ))}
         {rt.rules.some((r) => r.action === "exclude") && (
@@ -227,9 +281,10 @@ function ReportTypeDetail({ id }: { id: number }) {
             O regulă de excludere care se potrivește câștigă întotdeauna.
           </div>
         )}
+        {editor && <AddRuleButton rt={rt} />}
       </div>
 
-      {isEditor(me) && rt.rules.length > 0 && (
+      {editor && rt.rules.length > 0 && (
         <div>
           <button className="btn sm" disabled={preview.isPending} onClick={() => preview.mutate()}>
             Cui s-ar aplica acum?
