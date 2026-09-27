@@ -10,8 +10,9 @@ import type {
   ClientSaveOut,
   ClientUpdate,
   RecalculateDiff,
+  UserOut,
 } from "../api/types";
-import { isEditor, useMe } from "../auth/useAuth";
+import { ROLE_LABEL, isEditor, useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
 import { Icon, type IconName } from "../components/Icon";
 import { Avatar, CopyButton, Empty } from "../components/ui";
@@ -202,7 +203,7 @@ export function ClientPage() {
           {tab === "contacts" && <ContactsTab client={c} />}
           {tab === "reports" && <ReportsTab clientId={c.id} />}
           {tab === "fleet" && hasFleet && <FleetTab client={c} />}
-          {tab === "team" && <TeamTab clientId={c.id} />}
+          {tab === "team" && <TeamTab client={c} canEdit={isEditor(me)} />}
         </div>
       </div>
     </>
@@ -788,34 +789,141 @@ function ReportsTab({ clientId }: { clientId: number }) {
   );
 }
 
-function TeamTab({ clientId }: { clientId: number }) {
+function TeamTab({ client, canEdit }: { client: ClientOut; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [userId, setUserId] = useState("");
   const history = useQuery({
-    queryKey: ["assignments", clientId],
-    queryFn: () => api.get<AssignmentOut[]>(`/api/clients/${clientId}/assignments`),
+    queryKey: ["assignments", client.id],
+    queryFn: () => api.get<AssignmentOut[]>(`/api/clients/${client.id}/assignments`),
   });
+  // lista utilizatorilor o văd doar admin și director (ca și repartizarea)
+  const users = useQuery({
+    queryKey: ["users", false],
+    queryFn: () => api.get<UserOut[]>("/api/users"),
+    enabled: canEdit,
+  });
+  const done = (rows: AssignmentOut[]) => {
+    queryClient.setQueryData(["assignments", client.id], rows);
+    // contabilii apar și în capul cartelei și în lista de clienți
+    void queryClient.invalidateQueries({ queryKey: ["client", client.id] });
+    void queryClient.invalidateQueries({ queryKey: ["clients"] });
+  };
+  const assign = useMutation({
+    mutationFn: () =>
+      api.post<AssignmentOut[]>(`/api/clients/${client.id}/assignments`, {
+        user_id: Number(userId),
+      }),
+    onSuccess: (rows) => {
+      setUserId("");
+      done(rows);
+    },
+  });
+  const unassign = useMutation({
+    mutationFn: (assignmentId: number) =>
+      api.del<AssignmentOut[]>(`/api/client-assignments/${assignmentId}`),
+    onSuccess: done,
+  });
+
   if (history.error) return <ErrorBox error={history.error} />;
   if (!history.data) return <div className="loading">Se încarcă…</div>;
-  if (history.data.length === 0) return <Empty icon="team" title="Niciun contabil repartizat" />;
+  const current = new Set(history.data.filter((a) => !a.unassigned_at).map((a) => a.user.id));
+  // contabilii primii, apoi ceilalți; fără cei deja repartizați
+  const candidates = (users.data ?? [])
+    .filter((u) => u.status === "active" && !current.has(u.id))
+    .sort(
+      (a, b) =>
+        Number(b.role === "contabil") - Number(a.role === "contabil") ||
+        a.full_name.localeCompare(b.full_name, "ro"),
+    );
+  const editable = canEdit && client.status === "active";
+  const error = assign.error ?? unassign.error;
+
   return (
-    <div className="timeline team-timeline">
-      {history.data.map((a) => (
-        <div className={`tl${a.unassigned_at ? " past" : ""}`} key={a.id}>
-          <div className="tl-row">
-            <Avatar name={a.user.full_name} size={32} />
-            <div className="grow">
-              <div className="strong">
-                {a.user.full_name}{" "}
-                {a.unassigned_at ? (
-                  <span className="badge b-grey">până la {formatDate(a.unassigned_at)}</span>
-                ) : (
-                  <span className="badge b-ok">actual</span>
+    <div className="stack">
+      {error && <div className="error">{error.message}</div>}
+      {editable && (
+        <form
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            assign.mutate();
+          }}
+        >
+          <select
+            className="input"
+            style={{ minWidth: 260 }}
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            required
+            aria-label="Contabil"
+          >
+            <option value="" disabled>
+              {users.isLoading
+                ? "Se încarcă…"
+                : candidates.length
+                  ? "Alege contabilul…"
+                  : "Niciun utilizator disponibil"}
+            </option>
+            {candidates.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name} ({ROLE_LABEL[u.role].toLowerCase()})
+              </option>
+            ))}
+          </select>
+          <button className="btn primary" type="submit" disabled={!userId || assign.isPending}>
+            <Icon name="plus" size={16} /> Repartizează
+          </button>
+          {users.data && candidates.length === 0 && (
+            <span className="muted" style={{ fontSize: 13 }}>
+              Conturi noi se creează din <Link to="/utilizatori">Utilizatori</Link>.
+            </span>
+          )}
+        </form>
+      )}
+      {history.data.length === 0 ? (
+        <Empty
+          icon="team"
+          title="Niciun contabil repartizat"
+          hint={editable ? "Alege contabilul din listă și apasă „Repartizează”." : undefined}
+        />
+      ) : (
+        <div className="timeline team-timeline">
+          {history.data.map((a) => (
+            <div className={`tl${a.unassigned_at ? " past" : ""}`} key={a.id}>
+              <div className="tl-row">
+                <Avatar name={a.user.full_name} size={32} />
+                <div className="grow">
+                  <div className="strong">
+                    {a.user.full_name}{" "}
+                    {a.unassigned_at ? (
+                      <span className="badge b-grey">până la {formatDate(a.unassigned_at)}</span>
+                    ) : (
+                      <span className="badge b-ok">actual</span>
+                    )}
+                  </div>
+                  <div className="s">repartizat din {formatDate(a.assigned_at)}</div>
+                </div>
+                {editable && !a.unassigned_at && (
+                  <button
+                    className="btn sm ghost"
+                    disabled={unassign.isPending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Scoți pe ${a.user.full_name} de la ${client.name}? Rămâne în istoric.`,
+                        )
+                      )
+                        unassign.mutate(a.id);
+                    }}
+                  >
+                    Scoate
+                  </button>
                 )}
               </div>
-              <div className="s">repartizat din {formatDate(a.assigned_at)}</div>
             </div>
-          </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
