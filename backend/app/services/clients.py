@@ -1,10 +1,10 @@
 """Clienții: cartela, conturile bancare, contactele și contabilii repartizați.
 
 Permisiuni:
-- admin și director: toți clienții, orice modificare, arhivare, repartizări, `client_status`;
+- admin și director: toți clienții, adăugare, orice modificare, arhivare, repartizări,
+  `client_status`;
 - contabilul: doar clienții repartizați lui — citire și modificarea cartelei (inclusiv
-  atributele pentru reguli), conturi, contacte; poate adăuga clienți, care i se repartizează
-  automat și rămân în `onboarding` până îi activează un admin sau directorul.
+  atributele pentru reguli), conturi, contacte. Nu adaugă clienți.
 
 Când se schimbă un atribut pe care se evaluează regulile (sau la crearea clientului),
 obligațiile se recalculează automat, cu data de azi.
@@ -129,12 +129,12 @@ class ClientService:
     # --- Client ---
 
     async def create(self, data: ClientCreate, today: date) -> tuple[Client, RecalculateDiff]:
+        """Clientul nou pornește fără contabil; se repartizează separat."""
+        self._require_editor()
         client = Client(**data.model_dump(), created_by=self.actor.id)
         async with conflict_guard(self.session, _IDNO_CONFLICT):
             self.session.add(client)
         self.audit.created(client)
-        if not self.is_editor:  # contabilul: clientul i se repartizează lui
-            await self._add_assignment(client.id, self.actor.id)
         await self.session.commit()
         diff = await self._recalculate(client, today)
         return await self.get_card(client.id), diff

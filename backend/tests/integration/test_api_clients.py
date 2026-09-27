@@ -45,12 +45,32 @@ async def create(api: AsyncClient, headers: dict[str, str], **kw: Any) -> dict[s
     return body
 
 
+async def create_for_ana(api: AsyncClient, people: People, **kw: Any) -> dict[str, Any]:
+    """Adminul adaugă clientul și i-l repartizează Anei (contabilul nu adaugă clienți)."""
+    body = await create(api, people.admin, **kw)
+    client_id = body["client"]["id"]
+    resp = await api.post(
+        f"/api/clients/{client_id}/assignments",
+        json={"user_id": people.ana_user.id},
+        headers=people.admin,
+    )
+    assert resp.status_code == 201, resp.text
+    card = await api.get(f"/api/clients/{client_id}", headers=people.ana)
+    return {**body, "client": card.json()}
+
+
 def codes(items: list[dict[str, Any]]) -> list[str]:
     return sorted(i["code"] for i in items)
 
 
-async def test_accountant_onboards_client(api: AsyncClient, people: People) -> None:
-    body = await create(api, people.ana)
+async def test_onboarding_new_client(api: AsyncClient, people: People) -> None:
+    # contabilul nu adaugă clienți
+    denied = await api.post("/api/clients", json=AGRO, headers=people.ana)
+    assert denied.status_code == 403
+    created = await create(api, people.director)
+    assert created["client"]["accountants"] == []
+
+    body = await create_for_ana(api, people, idno="1003600054321")
     client = body["client"]
     assert client["client_status"] == "onboarding"
     assert [a["id"] for a in client["accountants"]] == [people.ana_user.id]
@@ -73,7 +93,7 @@ async def test_accountant_onboards_client(api: AsyncClient, people: People) -> N
 
 
 async def test_rule_attribute_change(api: AsyncClient, people: People) -> None:
-    client = (await create(api, people.ana))["client"]
+    client = (await create_for_ana(api, people))["client"]
     resp = await api.patch(
         f"/api/clients/{client['id']}",
         json={"has_employees": True, "is_vat_payer": False},
@@ -87,7 +107,7 @@ async def test_rule_attribute_change(api: AsyncClient, people: People) -> None:
 
 
 async def test_visibility_and_search(api: AsyncClient, people: People) -> None:
-    mine = (await create(api, people.ana))["client"]
+    mine = (await create_for_ana(api, people))["client"]
     other = (
         await create(
             api,
@@ -129,7 +149,7 @@ async def test_duplicate_idno_and_validation(api: AsyncClient, people: People) -
 
 
 async def test_archive(api: AsyncClient, people: People) -> None:
-    client = (await create(api, people.ana))["client"]
+    client = (await create_for_ana(api, people))["client"]
     url = f"/api/clients/{client['id']}"
     assert (await api.delete(url, headers=people.ana)).status_code == 403
     assert (await api.delete(url, headers=people.admin)).status_code == 204
@@ -143,7 +163,7 @@ async def test_archive(api: AsyncClient, people: People) -> None:
 
 
 async def test_bank_accounts_and_contacts(api: AsyncClient, people: People) -> None:
-    client = (await create(api, people.ana))["client"]
+    client = (await create_for_ana(api, people))["client"]
     base = f"/api/clients/{client['id']}"
     card = await api.post(
         f"{base}/bank-accounts",
@@ -189,7 +209,7 @@ async def test_bank_accounts_and_contacts(api: AsyncClient, people: People) -> N
 
 
 async def test_assignments(api: AsyncClient, people: People) -> None:
-    client = (await create(api, people.ana))["client"]
+    client = (await create_for_ana(api, people))["client"]
     url = f"/api/clients/{client['id']}/assignments"
     body = {"user_id": people.ion_user.id}
     assert (await api.post(url, json=body, headers=people.ana)).status_code == 403

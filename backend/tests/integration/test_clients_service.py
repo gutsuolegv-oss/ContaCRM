@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import RecordStatus
-from app.models import AuditLog, ClientStatus, LegalForm, User, UserRole
+from app.models import AuditLog, Client, ClientStatus, LegalForm, User, UserRole
 from app.schemas.classifier import ReportTypeBrief
 from app.schemas.clients import (
     BankAccountCreate,
@@ -15,6 +15,7 @@ from app.schemas.clients import (
     ContactCreate,
     ContactUpdate,
 )
+from app.schemas.matrix import RecalculateDiff
 from app.seed.classifier import seed_classifier
 from app.services.clients import ClientService, client_list_item, client_out
 from app.services.errors import (
@@ -57,6 +58,16 @@ def new_client(idno: str = "1003600012345", **kw: object) -> ClientCreate:
     return ClientCreate.model_validate(fields)
 
 
+async def create_for_ana(
+    session: AsyncSession, users: Users, data: ClientCreate
+) -> tuple[Client, RecalculateDiff]:
+    """Adminul adaugă clientul și i-l repartizează Anei (contabilul nu adaugă clienți)."""
+    admin = svc(session, users.admin)
+    client, diff = await admin.create(data, TODAY)
+    await admin.assign(client.id, users.ana.id)
+    return await svc(session, users.ana).get_card(client.id), diff
+
+
 def codes(briefs: list[ReportTypeBrief]) -> list[str]:
     return sorted(b.code for b in briefs)
 
@@ -64,8 +75,13 @@ def codes(briefs: list[ReportTypeBrief]) -> list[str]:
 # --- Creare ---
 
 
-async def test_accountant_creates_client(session: AsyncSession, users: Users) -> None:
-    client, diff = await svc(session, users.ana).create(new_client(is_vat_payer=True), TODAY)
+async def test_accountant_cannot_create_client(session: AsyncSession, users: Users) -> None:
+    with pytest.raises(ForbiddenError):
+        await svc(session, users.ana).create(new_client(), TODAY)
+
+
+async def test_new_client_onboarding(session: AsyncSession, users: Users) -> None:
+    client, diff = await create_for_ana(session, users, new_client(is_vat_payer=True))
     out = client_out(client)
     assert out.client_status is ClientStatus.ONBOARDING
     assert [a.id for a in out.accountants] == [users.ana.id]
@@ -74,7 +90,7 @@ async def test_accountant_creates_client(session: AsyncSession, users: Users) ->
     created = (
         await session.scalars(select(AuditLog).where(AuditLog.entity_type == "clients"))
     ).one()
-    assert created.user_id == users.ana.id
+    assert created.user_id == users.admin.id
 
 
 async def test_admin_created_client_has_no_accountant(session: AsyncSession, users: Users) -> None:
@@ -96,7 +112,7 @@ async def test_idno_unique_until_archived(session: AsyncSession, users: Users) -
 
 async def test_rule_field_change_recalculates(session: AsyncSession, users: Users) -> None:
     ana = svc(session, users.ana)
-    client, _ = await ana.create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     _, diff = await ana.update(client.id, ClientUpdate(has_employees=True), TODAY)
     assert diff is not None and codes(diff.to_add) == ["IPC21"]
     _, diff = await ana.update(client.id, ClientUpdate(notes="client din 2023"), TODAY)
@@ -107,7 +123,9 @@ async def test_rule_field_change_recalculates(session: AsyncSession, users: User
 
 async def test_vat_code_follows_vat_status(session: AsyncSession, users: Users) -> None:
     ana = svc(session, users.ana)
-    client, _ = await ana.create(new_client(is_vat_payer=True, vat_code="0600012"), TODAY)
+    client, _ = await create_for_ana(
+        session, users, new_client(is_vat_payer=True, vat_code="0600012")
+    )
     with pytest.raises(ValidationFailedError, match="vat_code"):
         await ana.update(client.id, ClientUpdate(is_vat_payer=False, vat_code="0600013"), TODAY)
     client, diff = await ana.update(client.id, ClientUpdate(is_vat_payer=False), TODAY)
@@ -116,7 +134,7 @@ async def test_vat_code_follows_vat_status(session: AsyncSession, users: Users) 
 
 
 async def test_only_editors_change_client_status(session: AsyncSession, users: Users) -> None:
-    client, _ = await svc(session, users.ana).create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     activate = ClientUpdate(client_status=ClientStatus.ACTIVE)
     with pytest.raises(ForbiddenError):
         await svc(session, users.ana).update(client.id, activate, TODAY)
@@ -125,7 +143,7 @@ async def test_only_editors_change_client_status(session: AsyncSession, users: U
 
 
 async def test_other_accountant_cannot_see(session: AsyncSession, users: Users) -> None:
-    client, _ = await svc(session, users.ana).create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     ion = svc(session, users.ion)
     with pytest.raises(NotFoundError):
         await ion.get_card(client.id)
@@ -143,7 +161,7 @@ async def test_null_on_required_field(session: AsyncSession, users: Users) -> No
 
 
 async def test_archive(session: AsyncSession, users: Users) -> None:
-    client, _ = await svc(session, users.ana).create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     with pytest.raises(ForbiddenError):
         await svc(session, users.ana).archive(client.id, NOW)
     await svc(session, users.admin).archive(client.id, NOW)
@@ -157,7 +175,9 @@ async def test_archive(session: AsyncSession, users: Users) -> None:
 
 async def test_search(session: AsyncSession, users: Users) -> None:
     ana, admin = svc(session, users.ana), svc(session, users.admin)
-    await ana.create(new_client("1003600012345", name="Agro-Nord SRL", is_vat_payer=True), TODAY)
+    await create_for_ana(
+        session, users, new_client("1003600012345", name="Agro-Nord SRL", is_vat_payer=True)
+    )
     await admin.create(new_client("1002600054321", name="Vinăria Codru SA"), TODAY)
     gone, _ = await admin.create(new_client("1010600023456", name="ÎI Moraru Petru"), TODAY)
     await admin.archive(gone.id, NOW)
@@ -184,7 +204,7 @@ async def test_search(session: AsyncSession, users: Users) -> None:
 
 async def test_bank_accounts(session: AsyncSession, users: Users) -> None:
     ana = svc(session, users.ana)
-    client, _ = await ana.create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     card = await ana.add_bank_account(
         client.id, BankAccountCreate(bank_name="MAIB", iban=IBAN_1, is_primary=True)
     )
@@ -213,7 +233,7 @@ async def test_bank_accounts(session: AsyncSession, users: Users) -> None:
 
 async def test_contacts(session: AsyncSession, users: Users) -> None:
     ana = svc(session, users.ana)
-    client, _ = await ana.create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     await ana.add_contact(
         client.id,
         ContactCreate(full_name="Petru Moraru", position="Administrator", is_primary=True),
@@ -234,7 +254,7 @@ async def test_contacts(session: AsyncSession, users: Users) -> None:
 
 
 async def test_assignments(session: AsyncSession, users: Users) -> None:
-    client, _ = await svc(session, users.ana).create(new_client(), TODAY)
+    client, _ = await create_for_ana(session, users, new_client())
     admin = svc(session, users.admin)
     with pytest.raises(ForbiddenError):
         await svc(session, users.ana).assign(client.id, users.ion.id)
