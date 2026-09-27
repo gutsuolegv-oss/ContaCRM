@@ -52,3 +52,7 @@ def require_roles(*roles: UserRole) -> Callable[[User], Awaitable[User]]:
         return user
 
     return _check
+
+
+# Cine poate modifica clasificatorul de rapoarte și obligațiile clienților.
+ClassifierEditor = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.DIRECTOR))]

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
 
     app_secret_key: SecretStr = Field(min_length=32)
 
+    # Fusul orar al biroului: „azi” pentru termene, valid_from implicit etc.
+    timezone: str = "Europe/Chisinau"
+
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 

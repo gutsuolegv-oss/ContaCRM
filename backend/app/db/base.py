@@ -18,6 +18,9 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    # Valorile generate de bază (updated_at la UPDATE) se citesc imediat prin RETURNING.
+    # Altfel ar rămâne expirate și s-ar încărca leneș, ceea ce în async nu merge.
+    __mapper_args__ = {"eager_defaults": True}  # noqa: RUF012
 
 
 def str_enum(enum_cls: type[enum.StrEnum], name: str, length: int = 16) -> Enum:

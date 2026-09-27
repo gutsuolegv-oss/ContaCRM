@@ -10,7 +10,13 @@ orice altceva e refuzat la salvare, ca o regulă greșită să nu treacă neobse
 import enum
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from app.models import LegalForm
 
@@ -98,6 +104,12 @@ class ConditionGroup(BaseModel):
             raise ValueError("un grup are fie 'all', fie 'any', nu amândouă")
         return self
 
+    @model_serializer(mode="wrap")
+    def _drop_empty(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Fără cheia nefolosită: {"all": [...]}, nu {"all": [...], "any": null}."""
+        data: dict[str, Any] = handler(self)
+        return {k: v for k, v in data.items() if v is not None}
+
     def to_json(self) -> dict[str, Any]:
-        """Forma salvată în JSONB, fără cheile goale."""
-        return self.model_dump(mode="json", exclude_none=True)
+        """Forma salvată în JSONB."""
+        return self.model_dump(mode="json")
