@@ -14,7 +14,7 @@ from app.api.deps import SessionDep, UserPendingPasswordChange
 from app.core.clock import utc_now
 from app.core.config import get_settings
 from app.models import User
-from app.schemas.auth import AccessTokenOut, LoginIn, UserOut
+from app.schemas.auth import AccessTokenOut, LoginIn, MeOut
 from app.schemas.users import PasswordChange
 from app.services.auth import AuthError, AuthService, TokenPair
 from app.services.users import UserService
@@ -86,7 +86,7 @@ async def logout(
     _clear(response)
 
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=MeOut)
 async def me(user: UserPendingPasswordChange) -> User:
     """Merge și când parola trebuie schimbată (`must_change_password`)."""
     return user

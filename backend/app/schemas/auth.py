@@ -16,7 +16,7 @@ class AccessTokenOut(BaseModel):
     expires_in: int  # secunde
 
 
-class UserOut(BaseModel):
+class MeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
