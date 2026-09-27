@@ -1,7 +1,7 @@
 """/api/clients — cartela clientului, conturi bancare, contacte, contabili repartizați.
 
-Contabilul vede și modifică doar clienții repartizați lui și poate adăuga clienți noi
-(i se repartizează automat). Arhivarea, repartizările și `client_status`: admin și director.
+Contabilul vede și modifică doar clienții repartizați lui. Adăugarea, arhivarea, repartizările
+și `client_status`: admin și director.
 Permisiunile le verifică serviciul (ClientService).
 """
 
@@ -60,7 +60,8 @@ async def list_clients(
 async def create_client(
     body: ClientCreate, session: SessionDep, user: CurrentUser, today: Today
 ) -> ClientSaveOut:
-    """Clientul pornește în `onboarding`; obligațiile se calculează automat de azi."""
+    """Doar admin și director. Clientul pornește în `onboarding`, fără contabil; obligațiile
+    se calculează automat de azi."""
     client, diff = await ClientService(session, user).create(body, today)
     return ClientSaveOut(client=client_out(client), recalculation=diff)
 

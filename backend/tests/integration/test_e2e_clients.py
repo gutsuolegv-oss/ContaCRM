@@ -28,11 +28,11 @@ def codes(items: list[dict[str, Any]]) -> list[str]:
 async def test_new_client_to_first_month(api: AsyncClient, session: AsyncSession) -> None:
     await seed_classifier(session)
     pw = hash_password(PASSWORD)
-    await make_user(session, "director", UserRole.DIRECTOR, password_hash=pw)
+    director_user = await make_user(session, "director", UserRole.DIRECTOR, password_hash=pw)
     ana = await make_user(session, "ana", UserRole.CONTABIL, password_hash=pw)
     director, ana_h = await login(api, "director"), await login(api, "ana")
 
-    # 1. Ana introduce clientul: i se repartizează ei, obligațiile se calculează de azi
+    # 1. Directorul introduce clientul (obligațiile se calculează de azi) și i-l dă Anei
     created = await api.post(
         "/api/clients",
         json={
@@ -42,15 +42,19 @@ async def test_new_client_to_first_month(api: AsyncClient, session: AsyncSession
             "is_it_park_resident": True,
             "locality": "Chișinău",
         },
-        headers=ana_h,
+        headers=director,
     )
     assert created.status_code == 201, created.text
     client_id = created.json()["client"]["id"]
+    assigned = await api.post(
+        f"/api/clients/{client_id}/assignments", json={"user_id": ana.id}, headers=director
+    )
+    assert assigned.status_code == 201, assigned.text
     assert codes(created.json()["recalculation"]["to_add"]) == [
         "EXTRASE", "FACT_LIVR", "FACT_PROC", "ITPARK_COT", "IU17",
     ]  # fmt: skip
 
-    # 2. Completează cartela; află că firma are angajați → IPC21 apare automat
+    # 2. Ana completează cartela; află că firma are angajați → IPC21 apare automat
     await api.post(
         f"/api/clients/{client_id}/bank-accounts",
         json={"bank_name": "MAIB", "iban": "MD24 AG00 0000 0225 1234 5678", "is_primary": True},
@@ -93,8 +97,8 @@ async def test_new_client_to_first_month(api: AsyncClient, session: AsyncSession
     # 6. Auditul are tot drumul clientului, cu autorii corecți
     rows = (await session.scalars(select(AuditLog).order_by(AuditLog.id))).all()
     trail = {(r.entity_type, r.action.value, r.user_id) for r in rows}
-    assert ("clients", "create", ana.id) in trail
-    assert ("client_assignments", "create", ana.id) in trail
+    assert ("clients", "create", director_user.id) in trail
+    assert ("client_assignments", "create", director_user.id) in trail
     assert ("client_bank_accounts", "create", ana.id) in trail
     assert ("report_entries", "update", ana.id) in trail
     status_change = next(

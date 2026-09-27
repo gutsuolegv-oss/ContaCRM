@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, Navigate, useNavigate } from "react-router";
 
 import { api } from "../api/client";
 import type { ClientCreate, ClientSaveOut } from "../api/types";
+import { isEditor, useMe } from "../auth/useAuth";
 import { Icon } from "../components/Icon";
 import { initials } from "../format";
 
@@ -25,7 +26,14 @@ const FLAGS: [FlagKey, string, string][] = [
   ["has_transport", "Are transport", "Activează tab-ul Parc auto"],
 ];
 
+/** Doar admin și director adaugă clienți; contabilul e trimis înapoi la listă. */
 export function NewClientPage() {
+  const me = useMe();
+  if (!isEditor(me)) return <Navigate to="/clienti" replace />;
+  return <NewClientForm />;
+}
+
+function NewClientForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ClientCreate>(EMPTY);

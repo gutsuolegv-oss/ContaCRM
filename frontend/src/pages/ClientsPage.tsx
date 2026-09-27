@@ -65,9 +65,11 @@ export function ClientsPage() {
             {total} {isEditor(me) ? "clienți în portofoliu" : "clienți repartizați ție"}
           </p>
         </div>
-        <Link className="btn primary" to="/clienti/nou">
-          <Icon name="plus" size={16} /> Client nou
-        </Link>
+        {isEditor(me) && (
+          <Link className="btn primary" to="/clienti/nou">
+            <Icon name="plus" size={16} /> Client nou
+          </Link>
+        )}
       </div>
       <div className="card">
         <div className="toolbar">
@@ -104,7 +106,13 @@ export function ClientsPage() {
           <Empty
             icon={filtered ? "search" : "clients"}
             title={filtered ? "Niciun client găsit" : "Încă nu ai clienți"}
-            hint={filtered ? "Încearcă alt nume, alt IDNO sau scoate filtrul." : undefined}
+            hint={
+              filtered
+                ? "Încearcă alt nume, alt IDNO sau scoate filtrul."
+                : isEditor(me)
+                  ? undefined
+                  : "Clienții ți-i repartizează adminul sau directorul."
+            }
             action={
               filtered ? (
                 <button
@@ -117,11 +125,11 @@ export function ClientsPage() {
                 >
                   Șterge filtrele
                 </button>
-              ) : (
+              ) : isEditor(me) ? (
                 <Link className="btn primary" to="/clienti/nou">
                   <Icon name="plus" size={16} /> Adaugă primul client
                 </Link>
-              )
+              ) : undefined
             }
           />
         ) : (
