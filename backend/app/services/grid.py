@@ -7,7 +7,7 @@ nici nu șterge celule când obligațiile clientului se schimbă (asta o face om
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,17 +16,29 @@ from app.models import (
     ReportEntryStep,
     ReportPeriod,
     ReportType,
+    Status,
     User,
+    UserRole,
 )
+from app.repositories.client import ClientRepository
 from app.repositories.execution import (
     EntryRepository,
     GenerationSourceRepository,
     PeriodRepository,
 )
 from app.repositories.holiday import HolidayRepository
-from app.services.audit import AuditService
+from app.repositories.user import UserRepository
+from app.schemas.grid import EntryOut, EntryStepOut, EntryUpdate, StatusBrief
+from app.services.access import SEES_ALL_CLIENTS
+from app.services.audit import AuditService, snapshot
 from app.services.deadlines import calculate_deadline
-from app.services.errors import ValidationFailedError, conflict_guard
+from app.services.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationFailedError,
+    conflict_guard,
+)
 from app.services.periods import period_bounds, periods_ending_in
 
 # Termenul poate fi cu până la 24 de luni după sfârșitul perioadei (deadline_month_offset).
@@ -64,9 +76,42 @@ def is_complete(steps: Sequence[ReportEntryStep]) -> bool:
     return all(s.status.is_final for s in required)
 
 
+def entry_out(entry: ReportEntry, today: date) -> EntryOut:
+    """Celula pentru API, cu `is_overdue` calculat față de `today`."""
+    return EntryOut(
+        id=entry.id,
+        client_id=entry.client_id,
+        report_type_id=entry.report_type_id,
+        period_id=entry.period_id,
+        deadline=entry.deadline,
+        assigned_user_id=entry.assigned_user_id,
+        is_completed=entry.is_completed,
+        completed_at=entry.completed_at,
+        is_overdue=(
+            not entry.is_completed and entry.deadline is not None and entry.deadline < today
+        ),
+        notes=entry.notes,
+        steps=[
+            EntryStepOut(
+                step_id=s.step_id,
+                code=s.step.code,
+                name=s.step.name,
+                is_required=s.step.is_required,
+                status=StatusBrief.model_validate(s.status),
+                changed_by=s.changed_by,
+                changed_at=s.changed_at,
+            )
+            for s in sorted(entry.steps, key=lambda s: (s.step.sort_order, s.step.id))
+        ],
+    )
+
+
 class GridService:
     def __init__(self, session: AsyncSession, actor: User | None) -> None:
+        """`actor`: cine face acțiunea — pentru permisiuni și pentru audit_log. `None` doar
+        pentru acțiunile sistemului (generarea automată)."""
         self.session = session
+        self.actor = actor
         self.actor_id = actor.id if actor is not None else None
         self.audit = AuditService(session, actor)
         self.periods = PeriodRepository(session)
@@ -161,3 +206,87 @@ class GridService:
                         "un status inițial"
                     )
         return initial
+
+    # --- Lucrul pe celule ---
+
+    def _user(self) -> User:
+        if self.actor is None:
+            raise ForbiddenError("Acțiune permisă doar unui utilizator")
+        return self.actor
+
+    async def get_entry(self, entry_id: int) -> ReportEntry:
+        """Celula, dacă utilizatorul o poate vedea (contabilul: doar la clienții lui)."""
+        entry = await self.entries.get_full(entry_id)
+        if entry is None or not await self.sees_client(entry.client_id):
+            raise NotFoundError("Celula nu există")
+        return entry
+
+    async def sees_client(self, client_id: int) -> bool:
+        user = self._user()
+        if user.role in SEES_ALL_CLIENTS:
+            return True
+        return await ClientRepository(self.session).is_assigned_to(client_id, user.id)
+
+    @staticmethod
+    def _ensure_open(entry: ReportEntry) -> None:
+        if entry.period.is_closed:
+            raise ConflictError("Perioada e închisă; redeschide-o ca să modifici")
+
+    async def set_step_status(
+        self, entry_id: int, step_id: int, status_id: int, now: datetime
+    ) -> ReportEntry:
+        entry = await self.get_entry(entry_id)
+        self._ensure_open(entry)
+        entry_step = next((s for s in entry.steps if s.step_id == step_id), None)
+        if entry_step is None:
+            raise NotFoundError("Raportul nu are această etapă")
+        status = await self.session.get(Status, status_id)
+        if status is None or status.status_set_id != entry_step.step.status_set_id:
+            raise ValidationFailedError("Statusul nu aparține setului de statusuri al etapei")
+        if entry_step.status_id == status.id:
+            return entry
+
+        step_before, entry_before = snapshot(entry_step), snapshot(entry)
+        async with conflict_guard(self.session, "Statusul nu a putut fi salvat"):
+            entry_step.status = status
+            entry_step.changed_by = self.actor_id
+            entry_step.changed_at = now
+            complete = is_complete(entry.steps)
+            if complete != entry.is_completed:
+                entry.is_completed = complete
+                entry.completed_at = now if complete else None
+        self.audit.changed(entry_step, step_before)
+        self.audit.changed(entry, entry_before)
+        await self.session.commit()
+        return await self.get_entry(entry_id)
+
+    async def update_entry(self, entry_id: int, data: EntryUpdate) -> ReportEntry:
+        entry = await self.get_entry(entry_id)
+        self._ensure_open(entry)
+        values = data.model_dump(exclude_unset=True)
+        if self._user().role is UserRole.CONTABIL and set(values) - {"notes"}:
+            raise ForbiddenError("Contabilul poate modifica doar notițele")
+        if values.get("assigned_user_id") is not None:
+            if await UserRepository(self.session).get_active(values["assigned_user_id"]) is None:
+                raise ValidationFailedError("Utilizatorul nu există")
+
+        before = snapshot(entry)
+        async with conflict_guard(self.session, "Celula nu a putut fi salvată"):
+            for key, value in values.items():
+                setattr(entry, key, value)
+        self.audit.changed(entry, before)
+        await self.session.commit()
+        return await self.get_entry(entry_id)
+
+    # --- Perioade ---
+
+    async def set_period_closed(self, period_id: int, closed: bool) -> ReportPeriod:
+        period = await self.periods.get(period_id)
+        if period is None:
+            raise NotFoundError("Perioada nu există")
+        before = snapshot(period)
+        async with conflict_guard(self.session, "Perioada nu a putut fi salvată"):
+            period.is_closed = closed
+        self.audit.changed(period, before)
+        await self.session.commit()
+        return period

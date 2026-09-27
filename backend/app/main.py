@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.api import auth, classifiers, health
 from app.services.errors import (
     ConflictError,
+    ForbiddenError,
     NotFoundError,
     ServiceError,
     ValidationFailedError,
@@ -11,6 +12,7 @@ from app.services.errors import (
 
 _STATUS = {
     NotFoundError: status.HTTP_404_NOT_FOUND,
+    ForbiddenError: status.HTTP_403_FORBIDDEN,
     ConflictError: status.HTTP_409_CONFLICT,
     ValidationFailedError: 422,
 }

@@ -17,6 +17,10 @@ class NotFoundError(ServiceError):
     """Înregistrarea nu există sau utilizatorul nu are voie s-o vadă."""
 
 
+class ForbiddenError(ServiceError):
+    """Utilizatorul vede înregistrarea, dar nu are voie s-o modifice așa."""
+
+
 class ConflictError(ServiceError):
     """Încalcă o regulă de unicitate sau înregistrarea e folosită în altă parte."""
 
