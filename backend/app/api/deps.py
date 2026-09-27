@@ -1,12 +1,14 @@
 """Dependențe comune pentru rute: sesiunea DB, utilizatorul curent, verificarea rolului."""
 
 from collections.abc import Awaitable, Callable
+from datetime import date
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import local_today
 from app.core.security import decode_access_token
 from app.db.session import get_session
 from app.models import User, UserRole
@@ -56,3 +58,11 @@ def require_roles(*roles: UserRole) -> Callable[[User], Awaitable[User]]:
 
 # Cine poate modifica clasificatorul de rapoarte și obligațiile clienților.
 ClassifierEditor = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.DIRECTOR))]
+
+
+async def get_today() -> date:
+    """„Azi” pentru termene și întârzieri. Dependență, ca testele s-o poată fixa."""
+    return local_today()
+
+
+Today = Annotated[date, Depends(get_today)]

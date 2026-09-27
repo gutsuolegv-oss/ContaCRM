@@ -24,6 +24,15 @@ class ClientRepository(Repository[Client]):
         )
         return (await self.session.scalars(stmt)).all()
 
+    async def assigned_ids(self, user_id: int) -> set[int]:
+        """Clienții repartizați acum contabilului."""
+        rows = await self.session.scalars(
+            select(ClientAssignment.client_id).where(
+                ClientAssignment.user_id == user_id, ClientAssignment.unassigned_at.is_(None)
+            )
+        )
+        return set(rows.all())
+
     async def is_assigned_to(self, client_id: int, user_id: int) -> bool:
         """Contabilul are acum (repartizare deschisă) clientul?"""
         stmt = select(

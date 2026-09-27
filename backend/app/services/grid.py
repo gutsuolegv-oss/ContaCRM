@@ -28,7 +28,17 @@ from app.repositories.execution import (
 )
 from app.repositories.holiday import HolidayRepository
 from app.repositories.user import UserRepository
-from app.schemas.grid import EntryOut, EntryStepOut, EntryUpdate, StatusBrief
+from app.schemas.classifier import ReportTypeBrief
+from app.schemas.grid import (
+    ClientBrief,
+    EntryOut,
+    EntryStepOut,
+    EntryUpdate,
+    GridOut,
+    GridRowOut,
+    PeriodOut,
+    StatusBrief,
+)
 from app.services.access import SEES_ALL_CLIENTS
 from app.services.audit import AuditService, snapshot
 from app.services.deadlines import calculate_deadline
@@ -206,6 +216,59 @@ class GridService:
                         "un status inițial"
                     )
         return initial
+
+    # --- Vizualizarea grilei ---
+
+    async def view(
+        self,
+        year: int,
+        month: int,
+        today: date,
+        client_id: int | None = None,
+        report_type_id: int | None = None,
+        assigned_user_id: int | None = None,
+        only_open: bool = False,
+        only_overdue: bool = False,
+    ) -> GridOut:
+        """Grila lunii: un rând pe client, o celulă pe raport și perioadă. Contabilul vede doar
+        clienții repartizați lui."""
+        periods = await self.periods.list_ending_in(year, month)
+        client_ids: set[int] | None = None
+        if self._user().role not in SEES_ALL_CLIENTS:
+            client_ids = await ClientRepository(self.session).assigned_ids(self._user().id)
+        if client_id is not None:
+            client_ids = {client_id} if client_ids is None else client_ids & {client_id}
+
+        entries = (
+            await self.entries.list_for_periods(
+                [p.id for p in periods],
+                client_ids=client_ids,
+                report_type_id=report_type_id,
+                assigned_user_id=assigned_user_id,
+                only_open=only_open,
+                overdue_on=today if only_overdue else None,
+            )
+            if periods
+            else []
+        )
+
+        rows: dict[int, GridRowOut] = {}
+        columns: dict[int, ReportType] = {}
+        for entry in entries:
+            row = rows.get(entry.client_id)
+            if row is None:
+                row = GridRowOut(client=ClientBrief.model_validate(entry.client), entries=[])
+                rows[entry.client_id] = row
+            row.entries.append(entry_out(entry, today))
+            columns[entry.report_type_id] = entry.report_type
+        ordered = sorted(columns.values(), key=lambda rt: (rt.sort_order, rt.code, rt.id))
+        return GridOut(
+            year=year,
+            month=month,
+            periods=[PeriodOut.model_validate(p) for p in periods],
+            report_types=[ReportTypeBrief.model_validate(rt) for rt in ordered],
+            rows=list(rows.values()),
+        )
 
     # --- Lucrul pe celule ---
 
