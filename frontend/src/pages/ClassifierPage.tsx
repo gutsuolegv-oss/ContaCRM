@@ -6,6 +6,8 @@ import { api } from "../api/client";
 import type { CategoryOut, ReportTypeDetailOut, ReportTypeOut, StatusSetOut } from "../api/types";
 import { isEditor, useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
+import { Icon } from "../components/Icon";
+import { Empty } from "../components/ui";
 import { formatDate } from "../format";
 import { describeCondition, type Condition } from "../rules";
 import {
@@ -37,6 +39,7 @@ export function ClassifierPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [showRetired, setShowRetired] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState("");
   const categories = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.get<CategoryOut[]>("/api/classifiers/categories"),
@@ -52,6 +55,11 @@ export function ClassifierPage() {
   if (categories.error || types.error) return <ErrorBox error={categories.error ?? types.error} />;
   if (!categories.data || !types.data) return <div className="loading">Se încarcă…</div>;
 
+  const term = filter.trim().toLowerCase();
+  const visible = types.data.filter(
+    (t) => !term || t.code.toLowerCase().includes(term) || t.name.toLowerCase().includes(term),
+  );
+
   return (
     <>
       <div className="page-head">
@@ -61,8 +69,8 @@ export function ClassifierPage() {
             Catalogul rapoartelor, termenele lor și regulile care decid ce client ce raport are.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <label className="who" style={{ fontSize: 13 }}>
+        <div className="page-actions">
+          <label className="check">
             <input
               type="checkbox"
               checked={showRetired}
@@ -72,7 +80,7 @@ export function ClassifierPage() {
           </label>
           {isEditor(me) && (
             <button className="btn primary" onClick={() => setCreating(true)}>
-              + Raport nou
+              <Icon name="plus" size={16} /> Raport nou
             </button>
           )}
         </div>
@@ -89,13 +97,31 @@ export function ClassifierPage() {
       )}
       <div className="grid g-main" style={{ alignItems: "start" }}>
         <div className="stack">
+          <div className="input-icon" style={{ maxWidth: 360 }}>
+            <Icon name="search" size={16} />
+            <input
+              className="input"
+              placeholder="Filtrează după cod sau denumire"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+          {visible.length === 0 && (
+            <div className="card">
+              <Empty icon="search" title="Niciun raport găsit" />
+            </div>
+          )}
           {categories.data.map((cat) => {
-            const inCategory = types.data.filter((t) => t.category_id === cat.id);
+            const inCategory = visible.filter((t) => t.category_id === cat.id);
             if (inCategory.length === 0) return null;
             return (
               <div className="card" key={cat.id}>
                 <div className="card-h">
-                  <h3>{cat.name}</h3>
+                  <h3>
+                    <Icon name="layers" size={16} />
+                    {cat.name}
+                  </h3>
+                  <span className="count">{inCategory.length} rapoarte</span>
                 </div>
                 <div className="table-wrap">
                   <table>
@@ -104,21 +130,21 @@ export function ClassifierPage() {
                         <th>Cod</th>
                         <th>Raport</th>
                         <th>Periodicitate</th>
-                        <th>Termen</th>
+                        <th className="hide-sm">Termen</th>
                       </tr>
                     </thead>
                     <tbody>
                       {inCategory.map((rt) => (
                         <tr
                           key={rt.id}
-                          className="link"
+                          className={`link${selected === rt.id ? " selected" : ""}`}
                           onClick={() => setSelected(rt.id)}
-                          style={selected === rt.id ? { background: "var(--primary-soft)" } : {}}
+                          style={!rt.is_active ? { opacity: 0.6 } : undefined}
                         >
                           <td>
                             <span className="chip-r b-pri">{rt.code}</span>
                           </td>
-                          <td>
+                          <td className="strong">
                             {rt.name}
                             {!rt.is_active && (
                               <span className="badge b-grey" style={{ marginLeft: 6 }}>
@@ -126,8 +152,14 @@ export function ClassifierPage() {
                               </span>
                             )}
                           </td>
-                          <td>{PERIODICITY[rt.periodicity]}</td>
-                          <td className="muted">{deadlineText(rt)}</td>
+                          <td>
+                            <span className="badge plain b-grey">
+                              {PERIODICITY[rt.periodicity]}
+                            </span>
+                          </td>
+                          <td className="muted hide-sm" style={{ fontSize: 13 }}>
+                            {deadlineText(rt)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -137,9 +169,13 @@ export function ClassifierPage() {
             );
           })}
         </div>
-        <div className="card" style={{ position: "sticky", top: 76 }}>
+        <div className="card detail-panel">
           {selected === null ? (
-            <div className="empty">Alege un raport din listă ca să-i vezi etapele și regulile.</div>
+            <Empty
+              icon="reports"
+              title="Niciun raport ales"
+              hint="Alege un raport din listă ca să-i vezi etapele și regulile."
+            />
           ) : (
             <ReportTypeDetail id={selected} categories={categories.data} />
           )}
@@ -177,20 +213,25 @@ function ReportTypeDetail({ id, categories }: { id: number; categories: Category
   return (
     <div className="card-b stack">
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-        <div>
-          <div className="strong" style={{ fontSize: 16 }}>
-            {rt.code} · {rt.name}
-          </div>
-          {rt.full_name && (
-            <div className="muted" style={{ marginTop: 4 }}>
-              {rt.full_name}
+        <div className="person" style={{ alignItems: "flex-start" }}>
+          <span className="chip-r b-pri" style={{ height: 32, minWidth: 52, fontSize: 13 }}>
+            {rt.code}
+          </span>
+          <div className="grow">
+            <div className="strong" style={{ fontSize: 16, lineHeight: 1.3 }}>
+              {rt.name}
             </div>
-          )}
+            {rt.full_name && (
+              <div className="muted" style={{ marginTop: 2, fontSize: 13 }}>
+                {rt.full_name}
+              </div>
+            )}
+          </div>
         </div>
         {editor && (
           <div style={{ display: "flex", gap: 4, alignItems: "start" }}>
             <button className="btn sm" onClick={() => setEditing(true)}>
-              Editează
+              <Icon name="edit" size={14} /> Editează
             </button>
             <RetireButton rt={rt} />
           </div>
@@ -204,72 +245,105 @@ function ReportTypeDetail({ id, categories }: { id: number; categories: Category
           onSaved={() => setEditing(false)}
         />
       )}
-      <dl className="dl" style={{ gridTemplateColumns: "120px 1fr", fontSize: 13 }}>
-        <dt>Autoritate</dt>
-        <dd>{rt.authority ?? "—"}</dd>
-        <dt>Bază legală</dt>
-        <dd>{rt.legal_reference ?? "—"}</dd>
-        <dt>Periodicitate</dt>
-        <dd>{PERIODICITY[rt.periodicity]}</dd>
-        <dt>Termen</dt>
-        <dd>{deadlineText(rt)} (mutat pe prima zi lucrătoare)</dd>
-        <dt>Plată</dt>
-        <dd>{rt.requires_payment ? "da" : "nu"}</dd>
-        <dt>Notificări</dt>
-        <dd>
-          {rt.notify_days_before.length
-            ? `cu ${rt.notify_days_before.join(", ")} zile înainte`
-            : "—"}
-        </dd>
-        <dt>Valabil</dt>
-        <dd>
-          din {formatDate(rt.valid_from)}
-          {rt.valid_to && ` până la ${formatDate(rt.valid_to)}`}
-        </dd>
-      </dl>
-
       <div>
-        <div className="strong" style={{ marginBottom: 6 }}>
-          Etape în grilă
+        <div className="kv">
+          <div className="k">Autoritate</div>
+          <div className="v">{rt.authority ?? <span className="nil">—</span>}</div>
+        </div>
+        <div className="kv">
+          <div className="k">Bază legală</div>
+          <div className="v">{rt.legal_reference ?? <span className="nil">—</span>}</div>
+        </div>
+        <div className="kv">
+          <div className="k">Periodicitate</div>
+          <div className="v">{PERIODICITY[rt.periodicity]}</div>
+        </div>
+        <div className="kv">
+          <div className="k">Termen</div>
+          <div className="v">
+            {deadlineText(rt)}
+            <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>
+              (mutat pe prima zi lucrătoare)
+            </span>
+          </div>
+        </div>
+        <div className="kv">
+          <div className="k">Plată</div>
+          <div className="v">
+            {rt.requires_payment ? (
+              <span className="badge b-warn">necesită plată</span>
+            ) : (
+              <span className="badge b-grey">nu</span>
+            )}
+          </div>
+        </div>
+        <div className="kv">
+          <div className="k">Notificări</div>
+          <div className="v">
+            {rt.notify_days_before.length ? (
+              `cu ${rt.notify_days_before.join(", ")} zile înainte`
+            ) : (
+              <span className="nil">—</span>
+            )}
+          </div>
+        </div>
+        <div className="kv">
+          <div className="k">Valabil</div>
+          <div className="v">
+            din {formatDate(rt.valid_from)}
+            {rt.valid_to && ` până la ${formatDate(rt.valid_to)}`}
+          </div>
+        </div>
+      </div>
+
+      <div className="detail-block">
+        <div className="section-title">
+          <Icon name="grid" size={15} /> Etape în grilă
         </div>
         {editor && statusSets.data ? (
           <StepsEditor rt={rt} statusSets={statusSets.data} />
         ) : (
           <>
             {rt.steps.length === 0 && <div className="muted">Nicio etapă.</div>}
-            {rt.steps.map((s) => (
-              <div key={s.id} style={{ fontSize: 13, marginBottom: 4 }}>
-                {s.name}{" "}
-                <span className="muted">
-                  (
-                  {setName(s.status_set_id)
-                    ?.statuses.map((st) => st.name)
-                    .join(" → ")}
-                  )
-                </span>
+            {rt.steps.map((s, i) => (
+              <div key={s.id} className="step-line">
+                <span className="n">{i + 1}</span>
+                <div>
+                  <div className="strong">{s.name}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {setName(s.status_set_id)
+                      ?.statuses.map((st) => st.name)
+                      .join(" → ")}
+                  </div>
+                </div>
               </div>
             ))}
           </>
         )}
       </div>
 
-      <div>
-        <div className="strong" style={{ marginBottom: 6 }}>
-          Cui se aplică
+      <div className="detail-block">
+        <div className="section-title">
+          <Icon name="clients" size={15} /> Cui se aplică
         </div>
         {rt.rules.length === 0 && (
-          <div className="muted" style={{ fontSize: 13 }}>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
             Fără reguli: se atribuie doar manual, din cartela clientului.
           </div>
         )}
         {rt.rules.map((rule) => (
-          <div key={rule.id} style={{ fontSize: 13, marginBottom: 6 }}>
+          <div
+            key={rule.id}
+            className="rule-line"
+            style={!rule.is_active ? { opacity: 0.6 } : undefined}
+          >
             <span className={`badge ${rule.action === "assign" ? "b-ok" : "b-bad"}`}>
               {rule.action === "assign" ? "se atribuie" : "se exclude"}
-            </span>{" "}
-            când <b>{describeCondition(rule.conditions as Condition)}</b>
+            </span>
+            <span>
+              când <b>{describeCondition(rule.conditions as Condition)}</b>
+            </span>
             <span className="muted">
-              {" "}
               · prioritate {rule.priority}
               {!rule.is_active && " · inactivă"}
             </span>
@@ -277,7 +351,7 @@ function ReportTypeDetail({ id, categories }: { id: number; categories: Category
           </div>
         ))}
         {rt.rules.some((r) => r.action === "exclude") && (
-          <div className="hint muted" style={{ fontSize: 12 }}>
+          <div className="hint" style={{ marginBottom: 8 }}>
             O regulă de excludere care se potrivește câștigă întotdeauna.
           </div>
         )}
@@ -285,21 +359,28 @@ function ReportTypeDetail({ id, categories }: { id: number; categories: Category
       </div>
 
       {editor && rt.rules.length > 0 && (
-        <div>
+        <div className="detail-block">
           <button className="btn sm" disabled={preview.isPending} onClick={() => preview.mutate()}>
-            Cui s-ar aplica acum?
+            <Icon name="search" size={14} /> Cui s-ar aplica acum?
           </button>
-          {preview.error && <div className="error">{preview.error.message}</div>}
+          {preview.error && (
+            <div className="error" style={{ marginTop: 8 }}>
+              {preview.error.message}
+            </div>
+          )}
           {preview.data && (
-            <div style={{ fontSize: 13, marginTop: 8 }}>
-              {preview.data.length === 0
-                ? "Niciun client activ."
-                : preview.data.map((c, i) => (
-                    <span key={c.id}>
-                      {i > 0 && ", "}
-                      <Link to={`/clienti/${c.id}`}>{c.name}</Link>
-                    </span>
+            <div style={{ fontSize: 13, marginTop: 10 }}>
+              {preview.data.length === 0 ? (
+                <span className="muted">Niciun client activ.</span>
+              ) : (
+                <div className="pill-row">
+                  {preview.data.map((c) => (
+                    <Link key={c.id} className="pill" to={`/clienti/${c.id}`}>
+                      {c.name}
+                    </Link>
                   ))}
+                </div>
+              )}
             </div>
           )}
         </div>

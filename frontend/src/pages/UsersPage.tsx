@@ -5,15 +5,24 @@ import { api } from "../api/client";
 import type { UserOut, UserRole } from "../api/types";
 import { ROLE_LABEL, useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
+import { Icon } from "../components/Icon";
+import { Avatar, Empty } from "../components/ui";
 import { formatDate } from "../format";
 
 const MIN_PASSWORD = 12;
+
+const ROLE_BADGE: Record<UserRole, string> = {
+  admin: "b-pri",
+  director: "b-info",
+  contabil: "b-grey",
+};
 
 export function UsersPage() {
   const me = useMe();
   const isAdmin = me.role === "admin";
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const users = useQuery({
     queryKey: ["users", showArchived],
@@ -35,6 +44,7 @@ export function UsersPage() {
     onSuccess: (u) => done(`${u.full_name} a fost arhivat; clienții lui au rămas nerepartizați.`),
   });
   const error = reset.error ?? archive.error;
+  const active = users.data?.filter((u) => u.status !== "archived") ?? [];
 
   return (
     <>
@@ -43,20 +53,32 @@ export function UsersPage() {
           <h1>Utilizatori</h1>
           <p>
             {isAdmin ? "Conturile biroului." : "Conturile biroului (doar adminul le modifică)."}
+            {users.data && ` ${active.length} active.`}
           </p>
         </div>
-        <label className="who" style={{ fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          arată și conturile arhivate
-        </label>
+        <div className="page-actions">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+            />
+            arată și conturile arhivate
+          </label>
+          {isAdmin && !creating && (
+            <button className="btn primary" onClick={() => setCreating(true)}>
+              <Icon name="plus" size={16} /> Cont nou
+            </button>
+          )}
+        </div>
       </div>
       {message && (
-        <div className="notice" style={{ marginBottom: 16 }}>
-          {message}
+        <div className="callout ok" style={{ marginBottom: 16 }}>
+          <Icon name="check" />
+          <div style={{ flex: 1 }}>{message}</div>
+          <button className="btn sm ghost" onClick={() => setMessage(null)} aria-label="Închide">
+            <Icon name="x" size={14} />
+          </button>
         </div>
       )}
       {error && (
@@ -64,34 +86,60 @@ export function UsersPage() {
           {error.message}
         </div>
       )}
-      {isAdmin && (
-        <NewUserForm onCreated={(u) => done(`Contul pentru ${u.full_name} a fost creat.`)} />
+      {isAdmin && creating && (
+        <NewUserForm
+          onClose={() => setCreating(false)}
+          onCreated={(u) => {
+            setCreating(false);
+            done(`Contul pentru ${u.full_name} a fost creat.`);
+          }}
+        />
       )}
       <div className="card">
         {users.error ? (
           <ErrorBox error={users.error} />
         ) : !users.data ? (
           <div className="loading">Se încarcă…</div>
+        ) : users.data.length === 0 ? (
+          <Empty icon="team" title="Niciun cont" />
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Nume</th>
-                  <th>Email</th>
+                  <th>Utilizator</th>
                   <th>Rol</th>
-                  <th>Ultima logare</th>
+                  <th className="hide-sm">Ultima logare</th>
                   <th>Stare</th>
                   {isAdmin && <th />}
                 </tr>
               </thead>
               <tbody>
                 {users.data.map((u) => (
-                  <tr key={u.id}>
-                    <td className="strong">{u.full_name}</td>
-                    <td>{u.email}</td>
-                    <td>{ROLE_LABEL[u.role]}</td>
-                    <td className="muted">{formatDate(u.last_login_at)}</td>
+                  <tr key={u.id} style={u.status === "archived" ? { opacity: 0.6 } : undefined}>
+                    <td>
+                      <div className="person">
+                        <Avatar name={u.full_name} size={34} />
+                        <div className="grow">
+                          <div className="strong">
+                            {u.full_name}
+                            {u.id === me.id && (
+                              <span className="badge plain b-grey" style={{ marginLeft: 6 }}>
+                                tu
+                              </span>
+                            )}
+                          </div>
+                          <div className="sub">{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge plain ${ROLE_BADGE[u.role]}`}>
+                        {u.role === "admin" && <Icon name="shield" size={12} />}
+                        {ROLE_LABEL[u.role]}
+                      </span>
+                    </td>
+                    <td className="muted hide-sm">{formatDate(u.last_login_at)}</td>
                     <td>
                       {u.status === "archived" ? (
                         <span className="badge b-grey">arhivat</span>
@@ -104,7 +152,7 @@ export function UsersPage() {
                     {isAdmin && (
                       <td className="num">
                         {u.status === "active" && u.id !== me.id && (
-                          <span style={{ display: "inline-flex", gap: 6 }}>
+                          <span style={{ display: "inline-flex", gap: 4 }}>
                             <button
                               className="btn sm"
                               onClick={() => {
@@ -114,16 +162,16 @@ export function UsersPage() {
                                 if (password) reset.mutate({ id: u.id, password });
                               }}
                             >
-                              Resetează parola
+                              <Icon name="key" size={14} /> Resetează parola
                             </button>
                             <button
-                              className="btn sm ghost"
+                              className="btn sm ghost danger"
                               onClick={() => {
                                 if (window.confirm(`Arhivezi contul lui ${u.full_name}?`))
                                   archive.mutate(u.id);
                               }}
                             >
-                              Arhivează
+                              <Icon name="archive" size={14} /> Arhivează
                             </button>
                           </span>
                         )}
@@ -140,7 +188,13 @@ export function UsersPage() {
   );
 }
 
-function NewUserForm({ onCreated }: { onCreated: (user: UserOut) => void }) {
+function NewUserForm({
+  onCreated,
+  onClose,
+}: {
+  onCreated: (user: UserOut) => void;
+  onClose: () => void;
+}) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<UserRole>("contabil");
@@ -157,62 +211,82 @@ function NewUserForm({ onCreated }: { onCreated: (user: UserOut) => void }) {
 
   return (
     <form
-      className="card card-b"
+      className="card"
       style={{ marginBottom: 16 }}
       onSubmit={(e) => {
         e.preventDefault();
         create.mutate();
       }}
     >
-      <div className="strong" style={{ marginBottom: 10 }}>
-        Cont nou
-      </div>
-      {create.error && (
-        <div className="error" style={{ marginBottom: 10 }}>
-          {create.error.message}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <input
-          className="input"
-          placeholder="Nume Prenume"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <input
-          className="input"
-          type="email"
-          placeholder="email@birou.md"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <select
-          className="input"
-          value={role}
-          onChange={(e) => setRole(e.target.value as UserRole)}
-        >
-          <option value="contabil">Contabil</option>
-          <option value="director">Director</option>
-          <option value="admin">Admin</option>
-        </select>
-        <input
-          className="input"
-          type="password"
-          autoComplete="new-password"
-          placeholder={`Parolă inițială (min. ${MIN_PASSWORD})`}
-          minLength={MIN_PASSWORD}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button className="btn primary" type="submit" disabled={create.isPending}>
-          Creează
+      <div className="card-h">
+        <h3>
+          <Icon name="user" size={16} /> Cont nou
+        </h3>
+        <button type="button" className="btn sm ghost" onClick={onClose} aria-label="Închide">
+          <Icon name="x" size={14} />
         </button>
       </div>
-      <div className="hint muted" style={{ fontSize: 12, marginTop: 8 }}>
-        Comunică parola personal; utilizatorul va fi obligat s-o schimbe la prima logare.
+      <div className="card-b stack">
+        {create.error && <div className="error">{create.error.message}</div>}
+        <div className="form">
+          <div className="field">
+            <label>Nume Prenume</label>
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+          <div className="field">
+            <label>Email</label>
+            <input
+              className="input"
+              type="email"
+              placeholder="email@birou.md"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Rol</label>
+            <select
+              className="input"
+              value={role}
+              onChange={(e) => setRole(e.target.value as UserRole)}
+            >
+              <option value="contabil">Contabil</option>
+              <option value="director">Director</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Parolă inițială</label>
+            <input
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              placeholder={`minim ${MIN_PASSWORD} caractere`}
+              minLength={MIN_PASSWORD}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+        <div
+          className="form-actions"
+          style={{ justifyContent: "space-between", alignItems: "center" }}
+        >
+          <span className="hint">
+            Comunică parola personal; utilizatorul va fi obligat s-o schimbe la prima logare.
+          </span>
+          <button className="btn primary" type="submit" disabled={create.isPending}>
+            Creează contul
+          </button>
+        </div>
       </div>
     </form>
   );

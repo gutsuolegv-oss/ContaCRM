@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
 import { api } from "../api/client";
@@ -13,7 +13,8 @@ import type {
 } from "../api/types";
 import { isEditor, useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
-import { Icon } from "../components/Icon";
+import { Icon, type IconName } from "../components/Icon";
+import { Avatar, CopyButton, Empty } from "../components/ui";
 import { formatDate, initials } from "../format";
 import { ClientStatusBadge, VatBadge } from "./ClientsPage";
 import { FleetTab } from "./FleetTab";
@@ -27,6 +28,51 @@ const LEGAL_FORM: Record<string, string> = {
   GT: "GȚ",
   ONG: "ONG",
 };
+
+// --- Mici ajutoare vizuale ---
+
+/** IBAN grupat câte 4: MD24AG000225100013104168 → MD24 AG00 0225 1000 1310 4168 */
+function formatIban(iban: string): string {
+  return iban
+    .replace(/\s+/g, "")
+    .replace(/(.{4})/g, "$1 ")
+    .trim();
+}
+
+function Section({
+  icon,
+  title,
+  children,
+  wide,
+}: {
+  icon: IconName;
+  title: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <section className={`info-section${wide ? " wide" : ""}`}>
+      <div className="info-section-h">
+        <span className="info-ico">
+          <Icon name={icon} size={16} />
+        </span>
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="kv">
+      <div className="k">{label}</div>
+      <div className="v">{children}</div>
+    </div>
+  );
+}
+
+// --- Pagina ---
 
 export function ClientPage() {
   const id = Number(useParams().id);
@@ -44,53 +90,113 @@ export function ClientPage() {
   // Parcul auto: doar la clienții cu transport (bifa din „Date legale”), nearhivați.
   const hasFleet = c.has_transport && c.status === "active";
 
-  const tabButton = (value: Tab, label: string) => (
+  const tabButton = (value: Tab, label: string, icon: IconName, count?: number) => (
     <button className={tab === value ? "on" : ""} onClick={() => setTab(value)}>
+      <Icon name={icon} size={16} />
       {label}
+      {count !== undefined && <span className="tab-count">{count}</span>}
     </button>
   );
 
   return (
     <>
       <div className="crumbs">
-        <Link to="/clienti">Clienți</Link> / {c.name}
+        <Link to="/clienti">
+          <Icon name="back" size={14} /> Clienți
+        </Link>
+        <span className="sep">/</span>
+        <span>{c.name}</span>
       </div>
       {diff && <DiffNotice diff={diff} onClose={() => setDiff(null)} />}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="client-head">
+
+      <div className={`card client-card${c.status === "archived" ? " archived" : ""}`}>
+        <div className="client-hero">
           <div className="client-logo">{initials(c.name)}</div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <h1 style={{ margin: "0 0 6px", fontSize: 22 }}>{c.name}</h1>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="client-hero-main">
+            <h1>{c.name}</h1>
+            {c.full_name && c.full_name !== c.name && (
+              <div className="client-fullname">{c.full_name}</div>
+            )}
+            <div className="client-meta">
               <VatBadge vat={c.is_vat_payer} />
               <ClientStatusBadge status={c.client_status} />
               {c.status === "archived" && <span className="badge b-bad">Arhivat</span>}
-              <span className="muted mono">IDNO {c.idno}</span>
+              <span className="meta-chip mono">
+                <span className="muted">IDNO</span> {c.idno}
+                <CopyButton value={c.idno} label="Copiază IDNO" />
+              </span>
               {c.locality && (
-                <span className="muted">
+                <span className="meta-chip">
                   <Icon name="pin" size={14} /> {c.locality}
                 </span>
               )}
             </div>
           </div>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-              Contabil responsabil
+          <div className="client-owner">
+            <div className="owner-label">Contabil responsabil</div>
+            {c.accountants.length > 0 ? (
+              <div className="owner-list">
+                {c.accountants.map((a) => (
+                  <span key={a.full_name} className="owner">
+                    <Avatar name={a.full_name} size={28} />
+                    <span className="strong">{a.full_name}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="badge b-warn">nerepartizat</span>
+            )}
+          </div>
+        </div>
+
+        <div className="client-stats">
+          <div className="stat">
+            <span className="stat-ico">
+              <Icon name="briefcase" size={16} />
+            </span>
+            <div>
+              <div className="stat-l">Formă juridică</div>
+              <div className="stat-v">{LEGAL_FORM[c.legal_form] ?? c.legal_form}</div>
             </div>
-            <div className="strong">
-              {c.accountants.map((a) => a.full_name).join(", ") || "nerepartizat"}
+          </div>
+          <div className="stat">
+            <span className="stat-ico">
+              <Icon name="calendar" size={16} />
+            </span>
+            <div>
+              <div className="stat-l">Client din</div>
+              <div className="stat-v">{formatDate(c.client_since)}</div>
+            </div>
+          </div>
+          <div className="stat">
+            <span className="stat-ico">
+              <Icon name="bank" size={16} />
+            </span>
+            <div>
+              <div className="stat-l">Conturi bancare</div>
+              <div className="stat-v">{c.bank_accounts.length}</div>
+            </div>
+          </div>
+          <div className="stat">
+            <span className="stat-ico">
+              <Icon name="user" size={16} />
+            </span>
+            <div>
+              <div className="stat-l">Contacte</div>
+              <div className="stat-v">{c.contacts.length}</div>
             </div>
           </div>
         </div>
-        <div className="tabs">
-          {tabButton("legal", "Date legale")}
-          {tabButton("bank", "Conturi bancare")}
-          {tabButton("contacts", "Contacte")}
-          {tabButton("reports", "Rapoarte")}
-          {hasFleet && tabButton("fleet", "Parc auto")}
-          {tabButton("team", "Contabili")}
+
+        <div className="tabs client-tabs">
+          {tabButton("legal", "Date legale", "id")}
+          {tabButton("bank", "Conturi bancare", "bank", c.bank_accounts.length)}
+          {tabButton("contacts", "Contacte", "user", c.contacts.length)}
+          {tabButton("reports", "Rapoarte", "reports")}
+          {hasFleet && tabButton("fleet", "Parc auto", "truck")}
+          {tabButton("team", "Contabili", "team")}
         </div>
-        <div className="card-b" style={{ padding: 20 }}>
+        <div className="client-body">
           {tab === "legal" && <LegalTab client={c} canActivate={isEditor(me)} onSaved={setDiff} />}
           {tab === "bank" && <BankTab client={c} />}
           {tab === "contacts" && <ContactsTab client={c} />}
@@ -168,60 +274,107 @@ function LegalTab({
 
   if (!editing) {
     return (
-      <>
-        <dl className="dl">
-          <dt>Denumire completă</dt>
-          <dd>{client.full_name ?? "—"}</dd>
-          <dt>IDNO</dt>
-          <dd className="mono">{client.idno}</dd>
-          <dt>Formă juridică</dt>
-          <dd>{LEGAL_FORM[client.legal_form]}</dd>
-          <dt>Regim fiscal</dt>
-          <dd>
-            {client.is_vat_payer
-              ? `Plătitor TVA${client.vat_code ? ` · cod TVA ${client.vat_code}` : ""}`
-              : "Neînregistrat ca plătitor TVA"}
-          </dd>
-          <dt>Atribute pentru rapoarte</dt>
-          <dd>
-            {RULE_FLAGS.filter(([key]) => client[key])
-              .map(([, label]) => label)
-              .join(" · ") || "—"}
-          </dd>
-          <dt>Adresă juridică</dt>
-          <dd>{client.legal_address ?? "—"}</dd>
-          <dt>Activitate (CAEM)</dt>
-          <dd>{[client.caem_code, client.activity].filter(Boolean).join(" ") || "—"}</dd>
-          <dt>Data înregistrării</dt>
-          <dd>{formatDate(client.registered_on)}</dd>
-          <dt>Client din</dt>
-          <dd>{formatDate(client.client_since)}</dd>
-          <dt>Note</dt>
-          <dd>{client.notes ?? "—"}</dd>
-        </dl>
+      <div className="stack">
         {client.status === "active" && (
-          <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
-            <button
-              className="btn"
-              onClick={() => {
-                setForm({});
-                setEditing(true);
-              }}
-            >
-              Modifică
-            </button>
-            {canActivate && client.client_status === "onboarding" && (
+          <div className="tab-head">
+            <div className="muted">Datele de înregistrare și regimul fiscal al clientului.</div>
+            <div className="tab-actions">
+              {canActivate && client.client_status === "onboarding" && (
+                <button
+                  className="btn primary"
+                  disabled={save.isPending}
+                  onClick={() => save.mutate({ client_status: "active" })}
+                >
+                  <Icon name="check" size={16} /> Activează clientul
+                </button>
+              )}
               <button
-                className="btn primary"
-                disabled={save.isPending}
-                onClick={() => save.mutate({ client_status: "active" })}
+                className="btn"
+                onClick={() => {
+                  setForm({});
+                  setEditing(true);
+                }}
               >
-                Activează clientul
+                <Icon name="edit" size={16} /> Modifică
               </button>
-            )}
+            </div>
           </div>
         )}
-      </>
+        {save.error && <div className="error">{save.error.message}</div>}
+
+        <div className="info-grid">
+          <Section icon="id" title="Identificare">
+            <Row label="Denumire completă">
+              {client.full_name ?? <span className="nil">—</span>}
+            </Row>
+            <Row label="IDNO">
+              <span className="mono">{client.idno}</span>
+              <CopyButton value={client.idno} label="Copiază IDNO" />
+            </Row>
+            <Row label="Formă juridică">{LEGAL_FORM[client.legal_form] ?? client.legal_form}</Row>
+            <Row label="Data înregistrării">{formatDate(client.registered_on)}</Row>
+          </Section>
+
+          <Section icon="reports" title="Regim fiscal">
+            <Row label="TVA">
+              {client.is_vat_payer ? (
+                <span className="badge b-pri">Plătitor TVA</span>
+              ) : (
+                <span className="badge b-grey">Neînregistrat</span>
+              )}
+            </Row>
+            {client.is_vat_payer && (
+              <Row label="Cod TVA">
+                {client.vat_code ? (
+                  <>
+                    <span className="mono">{client.vat_code}</span>
+                    <CopyButton value={client.vat_code} label="Copiază codul TVA" />
+                  </>
+                ) : (
+                  <span className="nil">—</span>
+                )}
+              </Row>
+            )}
+            <div className="kv col">
+              <div className="k">Atribute pentru rapoarte</div>
+              <div className="flag-list">
+                {RULE_FLAGS.map(([key, label]) => (
+                  <span key={key} className={`flag${client[key] ? " on" : ""}`}>
+                    <Icon name={client[key] ? "check" : "plus"} size={13} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          <Section icon="pin" title="Activitate și adresă">
+            <Row label="Adresă juridică">
+              {client.legal_address ?? <span className="nil">—</span>}
+            </Row>
+            <Row label="Localitate">{client.locality ?? <span className="nil">—</span>}</Row>
+            <Row label="Activitate (CAEM)">
+              {client.caem_code || client.activity ? (
+                <>
+                  {client.caem_code && <span className="chip-r b-pri">{client.caem_code}</span>}{" "}
+                  {client.activity}
+                </>
+              ) : (
+                <span className="nil">—</span>
+              )}
+            </Row>
+            <Row label="Client din">{formatDate(client.client_since)}</Row>
+          </Section>
+
+          <Section icon="note" title="Note">
+            {client.notes ? (
+              <div className="note-text">{client.notes}</div>
+            ) : (
+              <div className="nil">Nicio notă.</div>
+            )}
+          </Section>
+        </div>
+      </div>
     );
   }
 
@@ -239,7 +392,7 @@ function LegalTab({
 
   return (
     <form
-      className="stack"
+      className="stack edit-form"
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate(form);
@@ -263,16 +416,21 @@ function LegalTab({
           <label>Adresă juridică</label>
           {text("legal_address")}
         </div>
-        {RULE_FLAGS.map(([key, label]) => (
-          <label key={key} className="field" style={{ flexDirection: "row", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={Boolean(value(key))}
-              onChange={(e) => set(key, e.target.checked)}
-            />
-            {label}
-          </label>
-        ))}
+        <div className="field full">
+          <label>Atribute pentru rapoarte</label>
+          <div className="flag-grid">
+            {RULE_FLAGS.map(([key, label]) => (
+              <label key={key} className={`flag-toggle${value(key) ? " on" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(value(key))}
+                  onChange={(e) => set(key, e.target.checked)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
         {value("is_vat_payer") && (
           <div className="field">
             <label>Cod TVA (7 cifre)</label>
@@ -292,12 +450,12 @@ function LegalTab({
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn primary" type="submit" disabled={save.isPending}>
-          Salvează
-        </button>
+      <div className="form-actions">
         <button className="btn" type="button" onClick={() => setEditing(false)}>
           Renunță
+        </button>
+        <button className="btn primary" type="submit" disabled={save.isPending}>
+          <Icon name="check" size={16} /> Salvează
         </button>
       </div>
     </form>
@@ -331,35 +489,57 @@ function BankTab({ client }: { client: ClientOut }) {
     api.patch<ClientOut>(`/api/bank-accounts/${id}`, { is_primary: true }),
   );
   const error = add.error ?? remove.error ?? makePrimary.error;
+  // contul principal primul
+  const accounts = [...client.bank_accounts].sort(
+    (a, b) => Number(b.is_primary) - Number(a.is_primary),
+  );
 
   return (
     <div className="stack">
       {error && <div className="error">{error.message}</div>}
-      {client.bank_accounts.length === 0 && <div className="muted">Niciun cont bancar.</div>}
-      {client.bank_accounts.map((a) => (
-        <div key={a.id} className="list-item" style={{ padding: "8px 0" }}>
-          <Icon name="bank" />
-          <div className="grow">
-            <div className="t">
-              {a.bank_name} {a.is_primary && <span className="badge plain b-ok">Principal</span>}
+      {accounts.length === 0 ? (
+        <Empty icon="bank" title="Niciun cont bancar" hint="Adaugă primul cont mai jos." />
+      ) : (
+        <div className="tile-grid">
+          {accounts.map((a) => (
+            <div key={a.id} className={`tile acct${a.is_primary ? " primary" : ""}`}>
+              <div className="tile-top">
+                <span className="tile-ico">
+                  <Icon name="bank" size={18} />
+                </span>
+                <div className="grow">
+                  <div className="strong">{a.bank_name}</div>
+                  <div className="tile-sub">
+                    <span className="badge plain b-grey">{a.currency}</span>
+                    {a.is_primary && (
+                      <span className="badge plain b-ok">
+                        <Icon name="star" size={12} /> Principal
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="iban">
+                <span className="mono">{formatIban(a.iban)}</span>
+                <CopyButton value={a.iban.replace(/\s+/g, "")} label="Copiază IBAN" />
+              </div>
+              <div className="tile-actions">
+                {!a.is_primary && (
+                  <button className="btn sm" onClick={() => makePrimary.mutate(a.id)}>
+                    <Icon name="star" size={14} /> Fă principal
+                  </button>
+                )}
+                <button className="btn sm ghost danger" onClick={() => remove.mutate(a.id)}>
+                  <Icon name="trash" size={14} /> Șterge
+                </button>
+              </div>
             </div>
-            <div className="s mono">
-              {a.iban} · {a.currency}
-            </div>
-          </div>
-          {!a.is_primary && (
-            <button className="btn sm" onClick={() => makePrimary.mutate(a.id)}>
-              Fă principal
-            </button>
-          )}
-          <button className="btn sm ghost" onClick={() => remove.mutate(a.id)}>
-            Șterge
-          </button>
+          ))}
         </div>
-      ))}
+      )}
       {client.status === "active" && (
         <form
-          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          className="add-box"
           onSubmit={(e) => {
             e.preventDefault();
             add.mutate(undefined, {
@@ -370,24 +550,29 @@ function BankTab({ client }: { client: ClientOut }) {
             });
           }}
         >
-          <input
-            className="input"
-            placeholder="Bancă"
-            value={bank}
-            onChange={(e) => setBank(e.target.value)}
-            required
-          />
-          <input
-            className="input mono"
-            placeholder="IBAN (MD…)"
-            value={iban}
-            onChange={(e) => setIban(e.target.value)}
-            required
-            style={{ minWidth: 280 }}
-          />
-          <button className="btn" type="submit" disabled={add.isPending}>
-            <Icon name="plus" /> Adaugă cont
-          </button>
+          <div className="add-box-h">
+            <Icon name="plus" size={16} /> Cont nou
+          </div>
+          <div className="add-box-row">
+            <input
+              className="input"
+              placeholder="Bancă"
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+              required
+            />
+            <input
+              className="input mono"
+              placeholder="IBAN (MD…)"
+              value={iban}
+              onChange={(e) => setIban(e.target.value)}
+              required
+              style={{ minWidth: 280, flex: 1 }}
+            />
+            <button className="btn primary" type="submit" disabled={add.isPending}>
+              Adaugă cont
+            </button>
+          </div>
         </form>
       )}
     </div>
@@ -410,51 +595,66 @@ function ContactsTab({ client }: { client: ClientOut }) {
     api.del<ClientOut>(`/api/contacts/${id}`),
   );
   const error = add.error ?? remove.error;
+  const contacts = [...client.contacts].sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
 
   return (
     <div className="stack">
       {error && <div className="error">{error.message}</div>}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nume</th>
-              <th>Rol</th>
-              <th>Telefon</th>
-              <th>Email</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {client.contacts.map((c) => (
-              <tr key={c.id}>
-                <td className="strong">
-                  {c.full_name}{" "}
-                  {c.is_primary && <span className="badge plain b-ok">Principal</span>}
-                </td>
-                <td>{c.position ?? "—"}</td>
-                <td className="mono">{c.phone ?? "—"}</td>
-                <td>{c.email ?? "—"}</td>
-                <td className="num">
-                  <button className="btn sm ghost" onClick={() => remove.mutate(c.id)}>
-                    Șterge
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {client.contacts.length === 0 && (
-              <tr>
-                <td colSpan={5} className="empty">
-                  Niciun contact
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {contacts.length === 0 ? (
+        <Empty icon="user" title="Niciun contact" hint="Adaugă persoana de legătură mai jos." />
+      ) : (
+        <div className="tile-grid">
+          {contacts.map((c) => (
+            <div key={c.id} className={`tile contact${c.is_primary ? " primary" : ""}`}>
+              <div className="tile-top">
+                <Avatar name={c.full_name} size={40} />
+                <div className="grow">
+                  <div className="strong">{c.full_name}</div>
+                  <div className="tile-sub">
+                    <span className="muted">{c.position ?? "Fără rol"}</span>
+                    {c.is_primary && (
+                      <span className="badge plain b-ok">
+                        <Icon name="star" size={12} /> Principal
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  className="icon-btn sm danger"
+                  title="Șterge contactul"
+                  aria-label="Șterge contactul"
+                  onClick={() => remove.mutate(c.id)}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              </div>
+              <div className="contact-lines">
+                {c.phone ? (
+                  <a className="contact-line mono" href={`tel:${c.phone.replace(/\s+/g, "")}`}>
+                    <Icon name="phone" size={15} /> {c.phone}
+                  </a>
+                ) : (
+                  <span className="contact-line nil">
+                    <Icon name="phone" size={15} /> —
+                  </span>
+                )}
+                {c.email ? (
+                  <a className="contact-line" href={`mailto:${c.email}`}>
+                    <Icon name="mail" size={15} /> {c.email}
+                  </a>
+                ) : (
+                  <span className="contact-line nil">
+                    <Icon name="mail" size={15} /> —
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {client.status === "active" && (
         <form
-          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          className="add-box"
           onSubmit={(e) => {
             e.preventDefault();
             add.mutate(undefined, {
@@ -466,28 +666,33 @@ function ContactsTab({ client }: { client: ClientOut }) {
             });
           }}
         >
-          <input
-            className="input"
-            placeholder="Nume Prenume"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <input
-            className="input"
-            placeholder="Rol (ex. Administrator)"
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="Telefon"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-          <button className="btn" type="submit" disabled={add.isPending}>
-            <Icon name="plus" /> Adaugă contact
-          </button>
+          <div className="add-box-h">
+            <Icon name="plus" size={16} /> Contact nou
+          </div>
+          <div className="add-box-row">
+            <input
+              className="input"
+              placeholder="Nume Prenume"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+            <input
+              className="input"
+              placeholder="Rol (ex. Administrator)"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+            />
+            <input
+              className="input"
+              placeholder="Telefon"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <button className="btn primary" type="submit" disabled={add.isPending}>
+              Adaugă contact
+            </button>
+          </div>
         </form>
       )}
     </div>
@@ -506,6 +711,7 @@ function ReportsTab({ clientId }: { clientId: number }) {
   if (!obligations.data) return <div className="loading">Se încarcă…</div>;
   const active = obligations.data.filter((o) => o.is_active);
   const inactive = obligations.data.filter((o) => !o.is_active);
+  const auto = active.filter((o) => o.source === "auto").length;
 
   const rows = (list: ClientReportTypeOut[]) =>
     list.map((o) => (
@@ -513,7 +719,7 @@ function ReportsTab({ clientId }: { clientId: number }) {
         <td>
           <span className="chip-r b-pri">{o.report_type.code}</span>
         </td>
-        <td>{o.report_type.name}</td>
+        <td className="strong">{o.report_type.name}</td>
         <td>
           {o.source === "auto" ? (
             <span className="badge b-grey">după reguli</span>
@@ -521,18 +727,31 @@ function ReportsTab({ clientId }: { clientId: number }) {
             <span className="badge b-warn">manual</span>
           )}
         </td>
-        <td>{formatDate(o.valid_from)}</td>
-        <td>{formatDate(o.valid_to)}</td>
+        <td className="mono muted">{formatDate(o.valid_from)}</td>
+        <td className="mono muted">{formatDate(o.valid_to)}</td>
       </tr>
     ));
 
   return (
     <div className="stack">
-      <div className="muted" style={{ fontSize: 13 }}>
-        Rapoartele pe care clientul trebuie să le depună. Cele „după reguli” se calculează automat
-        din atributele clientului; cele „manual” le-a stabilit un om.
+      <div className="tab-head">
+        <div className="muted">
+          Rapoartele pe care clientul trebuie să le depună. Cele „după reguli” se calculează automat
+          din atributele clientului; cele „manual” le-a stabilit un om.
+        </div>
+        <div className="pill-row">
+          <span className="pill">
+            <b>{active.length}</b> active
+          </span>
+          <span className="pill">
+            <b>{auto}</b> după reguli
+          </span>
+          <span className="pill">
+            <b>{active.length - auto}</b> manual
+          </span>
+        </div>
       </div>
-      <div className="table-wrap">
+      <div className="table-wrap framed">
         <table>
           <thead>
             <tr>
@@ -556,11 +775,13 @@ function ReportsTab({ clientId }: { clientId: number }) {
         </table>
       </div>
       {inactive.length > 0 && (
-        <details>
-          <summary className="muted">Obligații încheiate ({inactive.length})</summary>
-          <table>
-            <tbody>{rows(inactive)}</tbody>
-          </table>
+        <details className="closed-list">
+          <summary>Obligații încheiate ({inactive.length})</summary>
+          <div className="table-wrap framed">
+            <table>
+              <tbody>{rows(inactive)}</tbody>
+            </table>
+          </div>
         </details>
       )}
     </div>
@@ -574,20 +795,25 @@ function TeamTab({ clientId }: { clientId: number }) {
   });
   if (history.error) return <ErrorBox error={history.error} />;
   if (!history.data) return <div className="loading">Se încarcă…</div>;
-  if (history.data.length === 0) return <div className="muted">Niciun contabil repartizat.</div>;
+  if (history.data.length === 0) return <Empty icon="team" title="Niciun contabil repartizat" />;
   return (
-    <div className="timeline">
+    <div className="timeline team-timeline">
       {history.data.map((a) => (
-        <div className="tl" key={a.id}>
-          <div>
-            {a.user.full_name}{" "}
-            {a.unassigned_at ? (
-              <span className="badge b-grey">până la {formatDate(a.unassigned_at)}</span>
-            ) : (
-              <span className="badge b-ok">actual</span>
-            )}
+        <div className={`tl${a.unassigned_at ? " past" : ""}`} key={a.id}>
+          <div className="tl-row">
+            <Avatar name={a.user.full_name} size={32} />
+            <div className="grow">
+              <div className="strong">
+                {a.user.full_name}{" "}
+                {a.unassigned_at ? (
+                  <span className="badge b-grey">până la {formatDate(a.unassigned_at)}</span>
+                ) : (
+                  <span className="badge b-ok">actual</span>
+                )}
+              </div>
+              <div className="s">repartizat din {formatDate(a.assigned_at)}</div>
+            </div>
           </div>
-          <div className="s">repartizat din {formatDate(a.assigned_at)}</div>
         </div>
       ))}
     </div>

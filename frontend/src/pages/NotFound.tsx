@@ -1,10 +1,20 @@
+import { Link } from "react-router";
+
+import { Empty } from "../components/ui";
+
 export function NotFound() {
   return (
-    <div className="page-head">
-      <div>
-        <h1>Pagina nu există</h1>
-        <p>Verifică adresa sau alege o pagină din meniu.</p>
-      </div>
+    <div className="card" style={{ marginTop: 40 }}>
+      <Empty
+        icon="search"
+        title="Pagina nu există"
+        hint="Verifică adresa sau alege o pagină din meniu."
+        action={
+          <Link className="btn primary" to="/clienti">
+            Înapoi la clienți
+          </Link>
+        }
+      />
     </div>
   );
 }

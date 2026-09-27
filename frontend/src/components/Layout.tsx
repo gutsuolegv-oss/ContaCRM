@@ -1,8 +1,10 @@
-import { NavLink, Outlet } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { ROLE_LABEL, isEditor, useAuth, useMe } from "../auth/useAuth";
+import { isDarkTheme, toggleTheme } from "../theme";
 import { Icon, type IconName } from "./Icon";
-import { toggleTheme } from "../theme";
+import { Avatar } from "./ui";
 
 interface NavItem {
   to: string;
@@ -14,47 +16,122 @@ interface NavItem {
 export function Layout() {
   const me = useMe();
   const { logout } = useAuth();
-  const items: NavItem[] = [
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+  const [dark, setDark] = useState(isDarkTheme);
+  const [q, setQ] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const work: NavItem[] = [
     { to: "/grila", label: "Grila lunii", icon: "grid" },
     { to: "/clienti", label: "Clienți", icon: "clients" },
-    { to: "/clasificator", label: "Clasificator", icon: "reports" },
+  ];
+  const admin: NavItem[] = [
+    { to: "/clasificator", label: "Clasificator", icon: "layers" },
     { to: "/utilizatori", label: "Utilizatori", icon: "team", show: isEditor(me) },
   ];
 
+  // meniul mobil se închide la schimbarea paginii
+  const [shownPath, setShownPath] = useState(location.pathname);
+  if (shownPath !== location.pathname) {
+    setShownPath(location.pathname);
+    setOpen(false);
+  }
+
+  // Ctrl/⌘ + K → căutare
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const links = (items: NavItem[]) =>
+    items
+      .filter((i) => i.show !== false)
+      .map((i) => (
+        <NavLink key={i.to} to={i.to}>
+          <Icon name={i.icon} />
+          {i.label}
+        </NavLink>
+      ));
+
   return (
     <div className="app">
-      <aside className="sidebar">
+      <aside className={`sidebar${open ? " open" : ""}`}>
         <div className="brand">
-          <div className="brand-mark">C</div>ContaCRM
+          <div className="brand-mark">C</div>
+          <div>
+            ContaCRM
+            <small>Birou contabil</small>
+          </div>
         </div>
-        <nav className="nav">
-          {items
-            .filter((i) => i.show !== false)
-            .map((i) => (
-              <NavLink key={i.to} to={i.to}>
-                <Icon name={i.icon} />
-                {i.label}
-              </NavLink>
-            ))}
-        </nav>
-        <div className="sidebar-foot">
-          {me.full_name}
-          <br />
-          {ROLE_LABEL[me.role]} · {me.email}
+        <div className="nav-label">Lucru</div>
+        <nav className="nav">{links(work)}</nav>
+        <div className="nav-label">Configurare</div>
+        <nav className="nav">{links(admin)}</nav>
+
+        <div className="user-card">
+          <Avatar name={me.full_name} size={34} />
+          <div className="grow">
+            <div className="name">{me.full_name}</div>
+            <div className="role" title={me.email}>
+              {ROLE_LABEL[me.role]} · {me.email}
+            </div>
+          </div>
+          <button
+            className="icon-btn"
+            onClick={() => void logout()}
+            title="Ieșire"
+            aria-label="Ieșire"
+          >
+            <Icon name="logout" size={17} />
+          </button>
         </div>
       </aside>
+      <div className={`scrim${open ? " open" : ""}`} onClick={() => setOpen(false)} />
+
       <div className="main">
         <header className="topbar">
-          <div className="spacer" />
-          <button className="icon-btn" onClick={toggleTheme} title="Temă deschisă / întunecată">
-            <Icon name="moon" />
+          <button className="icon-btn menu-btn" onClick={() => setOpen(true)} aria-label="Meniu">
+            <Icon name="menu" />
           </button>
-          <button className="btn" onClick={() => void logout()}>
-            <Icon name="logout" />
-            Ieșire
+          <form
+            className="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const term = q.trim();
+              navigate(term ? `/clienti?q=${encodeURIComponent(term)}` : "/clienti");
+              setQ("");
+              searchRef.current?.blur();
+            }}
+          >
+            <Icon name="search" size={16} />
+            <input
+              ref={searchRef}
+              placeholder="Caută client după nume sau IDNO…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <kbd>Ctrl K</kbd>
+          </form>
+          <div className="spacer" />
+          <button
+            className="icon-btn"
+            onClick={() => setDark(toggleTheme())}
+            title={dark ? "Temă deschisă" : "Temă întunecată"}
+            aria-label="Schimbă tema"
+          >
+            <Icon name={dark ? "sun" : "moon"} />
           </button>
         </header>
-        <main className="content">
+        <main className="content" key={location.pathname}>
           <Outlet />
         </main>
       </div>
