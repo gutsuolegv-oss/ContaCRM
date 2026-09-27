@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 
+    @property
+    def cookie_secure(self) -> bool:
+        """Cookie-ul de sesiune doar pe HTTPS. Excepție: testele (clientul HTTP de test nu
+        folosește HTTPS). În dezvoltare merge prin http://localhost (tunel SSH), pe care
+        browserele îl tratează ca sigur."""
+        return self.environment != "test"
+
 
 @lru_cache
 def get_settings() -> Settings:

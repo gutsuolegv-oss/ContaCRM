@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import PASSWORD_CHANGE_REQUIRED
 from app.core.security import hash_password
 from app.models import AuditLog, ClientAssignment, User, UserRole
+from tests.integration.cookies import login_with_cookie, post_with_refresh
 from tests.integration.factories import assign, make_client, make_user
 
 ADMIN_PW = "parola-admin-12345"
@@ -16,10 +17,7 @@ NEW_PW = "parola-noua-ana-2026"
 
 
 async def login(api: AsyncClient, email: str, password: str) -> dict[str, Any]:
-    resp = await api.post("/api/auth/login", json={"email": email, "password": password})
-    assert resp.status_code == 200, resp.text
-    body: dict[str, Any] = resp.json()
-    return body
+    return await login_with_cookie(api, email, password)
 
 
 def bearer(tokens: dict[str, Any]) -> dict[str, str]:
@@ -123,7 +121,7 @@ async def test_first_login_must_change_password(api: AsyncClient, admin_h: dict[
     assert changed.status_code == 200, changed.text
     # sesiunea veche e închisă imediat (access și refresh), cea nouă merge
     assert (await api.get("/api/auth/me", headers=bearer(first))).status_code == 401
-    refresh = await api.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    refresh = await post_with_refresh(api, "/api/auth/refresh", first["refresh_token"])
     assert refresh.status_code == 401
     assert (await api.get("/api/clients", headers=bearer(changed.json()))).status_code == 200
     await login(api, "ana@birou.md", NEW_PW)
@@ -139,7 +137,7 @@ async def test_admin_reset_closes_sessions(api: AsyncClient, admin_h: dict[str, 
     )
     assert reset.json()["must_change_password"] is True
     assert (await api.get("/api/auth/me", headers=bearer(tokens))).status_code == 401
-    refresh = await api.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    refresh = await post_with_refresh(api, "/api/auth/refresh", tokens["refresh_token"])
     assert refresh.status_code == 401
     old = await api.post("/api/auth/login", json={"email": "ana@birou.md", "password": INITIAL_PW})
     assert old.status_code == 401

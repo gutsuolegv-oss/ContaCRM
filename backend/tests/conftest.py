@@ -8,7 +8,8 @@ deci testele nu își lasă date unul altuia.
 
 import os
 
-os.environ.setdefault("ENVIRONMENT", "test")
+# Forțat, nu setdefault: containerul de dezvoltare are ENVIRONMENT=dev.
+os.environ["ENVIRONMENT"] = "test"
 
 from collections.abc import AsyncIterator
 from pathlib import Path

@@ -8,12 +8,15 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.auth import REFRESH_COOKIE
 from app.api.deps import require_roles
+from app.core.config import Settings
 from app.core.security import create_access_token, hash_password, hash_token
 from app.db.base import RecordStatus
 from app.db.session import get_session
 from app.main import create_app
 from app.models import Organization, RefreshToken, User, UserRole
+from tests.integration.cookies import login_with_cookie, post_with_refresh, refresh_token_of
 
 PASSWORD = "parola-corecta-123"  # noqa: S105
 
@@ -42,10 +45,7 @@ async def make_user(session: AsyncSession) -> MakeUser:
 
 
 async def _login(client: AsyncClient, email: str = "ana@birou.md") -> dict[str, str]:
-    resp = await client.post("/api/auth/login", json={"email": email, "password": PASSWORD})
-    assert resp.status_code == 200, resp.text
-    data: dict[str, str] = resp.json()
-    return data
+    return await login_with_cookie(client, email, PASSWORD)
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -143,9 +143,9 @@ async def test_refresh_token_is_not_an_access_token(
 async def test_refresh_rotates_token(client: AsyncClient, make_user: MakeUser) -> None:
     await make_user()
     first = await _login(client)
-    resp = await client.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    resp = await post_with_refresh(client, "/api/auth/refresh", first["refresh_token"])
     assert resp.status_code == 200
-    second = resp.json()
+    second = resp.json() | {"refresh_token": refresh_token_of(resp)}
     assert second["refresh_token"] != first["refresh_token"]
     me = await client.get("/api/auth/me", headers=_bearer(second["access_token"]))
     assert me.status_code == 200
@@ -156,13 +156,12 @@ async def test_reused_refresh_token_revokes_all_sessions(
 ) -> None:
     await make_user()
     first = await _login(client)
-    second = (
-        await client.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
-    ).json()
+    resp = await post_with_refresh(client, "/api/auth/refresh", first["refresh_token"])
+    second = refresh_token_of(resp)
     # Tokenul vechi folosit din nou: refuzat, și se închide și sesiunea nouă.
-    reuse = await client.post("/api/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    reuse = await post_with_refresh(client, "/api/auth/refresh", first["refresh_token"])
     assert reuse.status_code == 401
-    after = await client.post("/api/auth/refresh", json={"refresh_token": second["refresh_token"]})
+    after = await post_with_refresh(client, "/api/auth/refresh", second)
     assert after.status_code == 401
 
 
@@ -175,18 +174,47 @@ async def test_expired_refresh_token(
     assert stored is not None
     stored.expires_at = datetime.now(UTC) - timedelta(seconds=1)
     await session.flush()
-    resp = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    resp = await post_with_refresh(client, "/api/auth/refresh", tokens["refresh_token"])
     assert resp.status_code == 401
 
 
 async def test_logout_revokes_refresh_token(client: AsyncClient, make_user: MakeUser) -> None:
     await make_user()
     tokens = await _login(client)
-    body = {"refresh_token": tokens["refresh_token"]}
-    assert (await client.post("/api/auth/logout", json=body)).status_code == 204
-    assert (await client.post("/api/auth/refresh", json=body)).status_code == 401
-    # Logout repetat sau cu token necunoscut nu dă eroare.
-    assert (await client.post("/api/auth/logout", json=body)).status_code == 204
+    token = tokens["refresh_token"]
+    logout = await post_with_refresh(client, "/api/auth/logout", token)
+    assert logout.status_code == 204
+    cleared = logout.headers["set-cookie"].lower()  # browserul șterge cookie-ul
+    assert f"{REFRESH_COOKIE}=" in cleared and "max-age=0" in cleared
+    assert (await post_with_refresh(client, "/api/auth/refresh", token)).status_code == 401
+    # Logout repetat, cu token necunoscut sau fără cookie nu dă eroare.
+    assert (await post_with_refresh(client, "/api/auth/logout", token)).status_code == 204
+    client.cookies.clear()
+    assert (await client.post("/api/auth/logout")).status_code == 204
+
+
+async def test_refresh_without_cookie(client: AsyncClient) -> None:
+    assert (await client.post("/api/auth/refresh")).status_code == 401
+
+
+async def test_session_cookie_attributes(client: AsyncClient, make_user: MakeUser) -> None:
+    await make_user()
+    resp = await client.post(
+        "/api/auth/login", json={"email": "ana@birou.md", "password": PASSWORD}
+    )
+    header = resp.headers["set-cookie"].lower()
+    assert f"{REFRESH_COOKIE}=" in header
+    for attribute in ("httponly", "samesite=strict", "path=/api/auth", "max-age=2592000"):
+        assert attribute in header
+    assert "secure" not in header  # în teste (HTTP); în rest, da — vezi mai jos
+
+
+@pytest.mark.parametrize(
+    ("environment", "secure"), [("prod", True), ("dev", True), ("test", False)]
+)
+def test_cookie_secure_outside_tests(environment: str, secure: bool) -> None:
+    settings = Settings(environment=environment)
+    assert settings.cookie_secure is secure
 
 
 async def test_require_roles(session: AsyncSession, make_user: MakeUser) -> None:

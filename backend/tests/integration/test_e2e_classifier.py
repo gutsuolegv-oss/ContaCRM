@@ -211,12 +211,9 @@ async def test_session_refresh_mid_flow(client: AsyncClient, session: AsyncSessi
     user = await make_user(
         session, "admin@birou.md", UserRole.ADMIN, password_hash=hash_password(PASSWORD)
     )
-    tokens = (
-        await client.post("/api/auth/login", json={"email": user.email, "password": PASSWORD})
-    ).json()
-    refreshed = await client.post(
-        "/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
-    )
+    await client.post("/api/auth/login", json={"email": user.email, "password": PASSWORD})
+    # browserul trimite singur cookie-ul primit la login
+    refreshed = await client.post("/api/auth/refresh")
     assert refreshed.status_code == 200
     headers = {"Authorization": f"Bearer {refreshed.json()['access_token']}"}
     resp = await client.post(

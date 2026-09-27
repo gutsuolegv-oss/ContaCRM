@@ -8,15 +8,12 @@ class LoginIn(BaseModel):
     password: str = Field(max_length=1024)
 
 
-class RefreshIn(BaseModel):
-    refresh_token: str = Field(max_length=255)
+class AccessTokenOut(BaseModel):
+    """Refresh token-ul NU e aici: vine într-un cookie httpOnly (vezi app/api/auth.py)."""
 
-
-class TokenPairOut(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"  # noqa: S105
-    expires_in: int  # secunde, pentru access token
+    expires_in: int  # secunde
 
 
 class UserOut(BaseModel):
