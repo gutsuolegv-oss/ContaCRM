@@ -9,6 +9,9 @@
 #   - API-ul e publicat DOAR pe 127.0.0.1:8000 al VM-ului (acces din afară prin tunel SSH:
 #     ssh -L 8000:127.0.0.1:8000 wcontacrm@<ip-vm>, apoi http://localhost:8000/docs).
 #     Pentru asta backend-ul intră și într-o rețea ne-internă (dev_access).
+#   - frontend: serverul de dezvoltare Vite pe 127.0.0.1:5173, care trimite /api la backend.
+#     Din afară: ssh -L 5173:127.0.0.1:5173 wcontacrm@<ip-vm>, apoi http://localhost:5173.
+#     Are nevoie de internet doar pentru npm install (rețeaua dev_access).
 
 services:
   backend:
@@ -23,6 +26,20 @@ services:
       - ./backend:/app
     ports:
       - "127.0.0.1:8000:8000"
+    networks: [crm_internal, dev_access]
+
+  frontend:
+    image: node:22-alpine
+    user: node
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app   # node_modules rămâne în ./frontend (în .gitignore)
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on: [backend]
     networks: [crm_internal, dev_access]
 
 networks:
