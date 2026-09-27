@@ -8,6 +8,7 @@ import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { ClassifierPage } from "./pages/ClassifierPage";
 import { ClientPage } from "./pages/ClientPage";
 import { ClientsPage } from "./pages/ClientsPage";
+import { DebtsPage } from "./pages/DebtsPage";
 import { GridPage } from "./pages/GridPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewClientPage } from "./pages/NewClientPage";
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
               { path: "clasificator", element: <ClassifierPage /> },
               { path: "utilizatori", element: <UsersPage /> },
               { path: "setari", element: <SettingsPage /> },
+              { path: "restante", element: <DebtsPage /> },
             ],
           },
           { path: "*", element: <NotFound /> },

@@ -2717,3 +2717,345 @@ a.contact-line:hover svg {
     display: none;
   }
 }
+
+/* ---------- Pagina grilei: totul încape pe ecran ---------- */
+/* Pagina ocupă exact înălțimea de sub bara de sus (60px) minus spațierea conținutului
+   (2 × 28px); tabelul ia restul și derulează în interior, cu antetul și clienții fixați. */
+.grid-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px - 56px);
+  min-height: 560px;
+}
+.grid-page .page-head {
+  margin-bottom: 14px;
+}
+.grid-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.grid-card > .table-wrap:has(> table.matrix) {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+.grid-foot {
+  padding: 9px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  align-items: center;
+}
+.grid-foot-note {
+  margin-left: auto;
+}
+
+/* Indicatori compacți: iconiță, etichetă și subtext la stânga, valoarea la dreapta. */
+.kpi-row.compact {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.kpi-row.compact .kpi {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "lbl val" "sub val" "bar bar";
+  align-items: center;
+  column-gap: 12px;
+  padding: 10px 14px;
+}
+.kpi-row.compact .kpi .lbl {
+  grid-area: lbl;
+}
+.kpi-row.compact .kpi .ico {
+  order: -1;
+  margin-left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+.kpi-row.compact .kpi .val {
+  grid-area: val;
+  font-size: 22px;
+  margin: 0;
+}
+.kpi-row.compact .kpi .sub {
+  grid-area: sub;
+  padding-left: 32px;
+}
+.kpi-row.compact .kpi .bar {
+  grid-area: bar;
+  margin-top: 6px;
+}
+
+/* Capul coloanei: codul și termenul comun. Celulele mai înguste, ca să încapă mai multe. */
+table.matrix thead th .col-code {
+  font-weight: 600;
+}
+table.matrix thead th .col-sub {
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+table.matrix td {
+  padding: 7px 6px;
+}
+table.matrix th:first-child,
+table.matrix td:first-child {
+  min-width: 190px;
+}
+table.matrix select {
+  min-width: 98px;
+  padding: 4px 20px 4px 9px;
+  background-position: right 7px center;
+}
+
+@media (max-width: 800px) {
+  /* pe telefon pagina derulează normal; tabelul are o înălțime rezonabilă */
+  .grid-page {
+    height: auto;
+    min-height: 0;
+  }
+  .grid-card > .table-wrap:has(> table.matrix) {
+    max-height: 70vh;
+  }
+  .grid-foot-note {
+    margin-left: 0;
+  }
+  table.matrix th:first-child,
+  table.matrix td:first-child {
+    min-width: 140px;
+    padding-left: 12px;
+  }
+  .grid-card .toolbar .seg {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+/* Sub denumirea clientului în grilă: contabilii și progresul rândului. */
+.row-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.row-acc {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.row-acc .avatar-stack .avatar {
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+.row-acc .avatar-stack .avatar + .avatar {
+  margin-left: -5px;
+}
+.row-acc-name {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-acc-more {
+  font-size: 11px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--surface-3);
+}
+.row-acc.none {
+  color: var(--warn);
+  gap: 3px;
+}
+.row-count {
+  margin-left: auto;
+  padding-left: 6px;
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--border);
+}
+/* rândul „contabil · progres” ocupă toată lățimea coloanei, ca progresul să fie aliniat */
+table.matrix td.strong a {
+  display: flex;
+}
+.row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Grila: coloana foilor de parcurs */
+table.matrix th.fleet-col,
+table.matrix td.fleet-cell {
+  min-width: 112px;
+  border-left: 1px solid var(--border);
+}
+.fleet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.fleet-pill:hover {
+  filter: brightness(0.97);
+  text-decoration: none;
+}
+.fleet-pill.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.fleet-pill.info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+.fleet-pill.bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 25%, transparent);
+}
+.fleet-pill.grey {
+  background: var(--surface);
+  color: var(--muted);
+  border-color: var(--border-strong);
+}
+.fleet-plates {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 8px;
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--muted);
+}
+.fleet-plates i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: 1px;
+}
+.fleet-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.fleet-issue {
+  padding: 2px 8px;
+  font-size: 11.5px;
+}
+/* peste 3 automobile: bară pe segmente + totaluri (lista completă la hover) */
+.fleet-summary {
+  margin: 5px auto 0;
+  max-width: 132px;
+  cursor: default;
+}
+.fleet-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.fleet-bar span {
+  flex-basis: 0;
+  min-width: 3px;
+}
+.fleet-counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 8px;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.fleet-counts i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: 1px;
+}
+
+/* Parc auto: reamintirile pe Telegram */
+.reminders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reminders-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.reminders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.reminders-list > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Setări: reamintirile pentru kilometraj */
+.reminder-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.check-line {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+.check-line input {
+  margin-top: 3px;
+}
+.check-line .muted {
+  display: block;
+  font-size: 12px;
+}
+.day-picker button {
+  min-width: 34px;
+}
+
+/* Setări → 1C: pașii de instalare */
+.steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.steps code,
+.callout code {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  word-break: break-all;
+}

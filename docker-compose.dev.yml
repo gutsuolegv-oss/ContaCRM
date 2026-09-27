@@ -15,6 +15,11 @@
 #     Acces direct din rețeaua biroului (HTTP simplu, NECRIPTAT — doar cu date demo): în .env
 #     FRONTEND_DEV_BIND_IP=<ip-vm> și SESSION_COOKIE_SECURE=false, apoi http://<ip-vm>:5173.
 #     Are nevoie de internet doar pentru npm install (rețeaua dev_access).
+#   - bot: botul Telegram (python -m app.telegram.bot), TEMPORAR pe aceeași mașină și cu acces
+#     direct la bază, până la gateway-ul separat din docs/architecture.md. Are internet (doar
+#     spre api.telegram.org îi trebuie) prin dev_access. Pornește doar la cerere:
+#       docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile bot up -d bot
+#     Tokenul se pune în aplicație (Setări → Telegram); fără token, botul doar așteaptă.
 
 services:
   backend:
@@ -45,6 +50,25 @@ services:
       - "${FRONTEND_DEV_BIND_IP:-127.0.0.1}:5173:5173"
     depends_on: [backend]
     networks: [crm_internal, dev_access]
+
+  bot:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    profiles: [bot]
+    command: python -m app.telegram.bot
+    environment:
+      ENVIRONMENT: dev
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      APP_SECRET_KEY: ${APP_SECRET_KEY}   # cheia din care se derivă criptarea tokenului
+      TZ: Europe/Chisinau
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [crm_internal, dev_access]
+    restart: unless-stopped
 
 networks:
   dev_access:

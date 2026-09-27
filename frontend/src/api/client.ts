@@ -22,6 +22,7 @@ type Query = Record<string, string | number | boolean | null | undefined>;
 interface RequestOptions {
   query?: Query;
   body?: unknown;
+  blob?: boolean; // răspunsul e un fișier, nu JSON
 }
 
 let accessToken: string | null = null;
@@ -87,7 +88,7 @@ async function errorMessage(resp: Response): Promise<string> {
 async function request<T>(
   method: string,
   path: string,
-  { query, body }: RequestOptions = {},
+  { query, body, blob }: RequestOptions = {},
   retry = true,
 ): Promise<T> {
   const headers: Record<string, string> = {};
@@ -102,12 +103,13 @@ async function request<T>(
   });
 
   if (resp.status === 401 && retry && !path.startsWith("/api/auth/")) {
-    if (await refreshAccessToken()) return request<T>(method, path, { query, body }, false);
+    if (await refreshAccessToken()) return request<T>(method, path, { query, body, blob }, false);
     accessToken = null;
     onSessionEnded();
   }
   if (!resp.ok) throw new ApiError(resp.status, await errorMessage(resp));
   if (resp.status === 204) return undefined as T;
+  if (blob) return (await resp.blob()) as T;
   return (await resp.json()) as T;
 }
 
@@ -118,4 +120,14 @@ export const api = {
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, { body }),
   put: <T>(path: string, body: unknown) => request<T>("PUT", path, { body }),
   del: <T>(path: string) => request<T>("DELETE", path),
+  /** Descarcă un fișier protejat (cu autentificarea curentă) și îl salvează în browser. */
+  download: async (path: string, filename: string) => {
+    const file = await request<Blob>("GET", path, { blob: true });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
 };

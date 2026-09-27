@@ -580,7 +580,8 @@ export interface paths {
         put?: never;
         /**
          * Create Client
-         * @description Clientul pornește în `onboarding`; obligațiile se calculează automat de azi.
+         * @description Doar admin și director. Clientul pornește în `onboarding`, fără contabil; obligațiile
+         *     se calculează automat de azi.
          */
         post: operations["create_client_api_clients_post"];
         delete?: never;
@@ -884,6 +885,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clients/{client_id}/fleet/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Reminders
+         * @description Reamintirile trimise clientului pe lună și dacă se poate trimite una acum.
+         */
+        get: operations["fleet_reminders_api_clients__client_id__fleet_reminders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/fleet/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind
+         * @description Reamintire manuală pe Telegram, pentru luna în care botul primește acum datele.
+         *     Pleacă în câteva secunde (o trimite procesul botului).
+         */
+        post: operations["remind_api_clients__client_id__fleet_remind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -965,6 +1007,220 @@ export interface paths {
         patch: operations["update_organization_api_settings_organization_patch"];
         trace?: never;
     };
+    "/api/settings/telegram-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Telegram Bot
+         * @description Starea botului (admin și director). Tokenul nu se întoarce niciodată.
+         */
+        get: operations["get_telegram_bot_api_settings_telegram_bot_get"];
+        /**
+         * Set Telegram Bot
+         * @description Doar admin. Token nou: procesul botului îl verifică în câteva secunde; null: botul se
+         *     oprește.
+         */
+        put: operations["set_telegram_bot_api_settings_telegram_bot_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/telegram-bot/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Reminders
+         * @description Doar admin: reamintirile automate (pornite sau nu) și intervalul în care pleacă
+         *     reamintirile, automate și manuale (zilele săptămânii și orele).
+         */
+        put: operations["set_reminders_api_settings_telegram_bot_reminders_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Telegram Status */
+        get: operations["telegram_status_api_clients__client_id__telegram_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Link
+         * @description Link nou pentru client; cel vechi nu mai leagă chat-uri noi (cele legate rămân).
+         */
+        post: operations["regenerate_link_api_clients__client_id__telegram_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telegram-chats/{chat_row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink Chat
+         * @description Chat-ul nu mai poate trimite date pentru client; rămâne în istoric.
+         */
+        delete: operations["unlink_chat_api_telegram_chats__chat_row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive Balances */
+        post: operations["receive_balances_api_onec_balances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Onec Status */
+        get: operations["onec_status_api_onec_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Key
+         * @description Doar admin. Cheia nouă se arată o singură dată; cea veche nu mai e acceptată.
+         */
+        post: operations["regenerate_key_api_onec_api_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/debts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Debts
+         * @description Clienții cu datorii la ultima sincronizare și contragenții din 1C negăsiți în CRM.
+         */
+        get: operations["debts_api_onec_debts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/clients/{client_id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Client Balance */
+        get: operations["client_balance_api_onec_clients__client_id__balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/script": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Script
+         * @description Scriptul PowerShell pentru calculatorul cu 1C.
+         */
+        get: operations["download_script_api_onec_script_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -983,6 +1239,19 @@ export interface components {
             token_type: string;
             /** Expires In */
             expires_in: number;
+        };
+        /** AccountantBrief */
+        AccountantBrief: {
+            /** Id */
+            id: number;
+            /** Full Name */
+            full_name: string;
+        };
+        /** ApiKeyOut */
+        ApiKeyOut: {
+            /** Key */
+            key: string;
+            status: components["schemas"]["OneCStatusOut"];
         };
         /** AssignmentCreate */
         AssignmentCreate: {
@@ -1005,6 +1274,34 @@ export interface components {
             unassigned_at: string | null;
             /** Unassigned By */
             unassigned_by: number | null;
+        };
+        /** BalanceRowIn */
+        BalanceRowIn: {
+            /** Idno */
+            idno: string;
+            /** Name */
+            name: string;
+            /** Debit */
+            debit: number | string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: number | string;
+        };
+        /** BalancesIn */
+        BalancesIn: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Base */
+            base?: string | null;
+            /** Script Version */
+            script_version?: string | null;
+            /** Rows */
+            rows: components["schemas"]["BalanceRowIn"][];
         };
         /** BankAccountCreate */
         BankAccountCreate: {
@@ -1046,6 +1343,49 @@ export interface components {
             currency?: string | null;
             /** Is Primary */
             is_primary?: boolean | null;
+        };
+        /** BotSettingsOut */
+        BotSettingsOut: {
+            /** Configured */
+            configured: boolean;
+            /** Token Hint */
+            token_hint: string | null;
+            /** Username */
+            username: string | null;
+            status: components["schemas"]["BotStatus"];
+            /** Status Message */
+            status_message: string | null;
+            /** Checked At */
+            checked_at: string | null;
+            /** Running */
+            running: boolean;
+            /** Auto Reminders */
+            auto_reminders: boolean;
+            /** Reminder Weekdays */
+            reminder_weekdays: number[];
+            /**
+             * Reminder From
+             * Format: time
+             */
+            reminder_from: string;
+            /**
+             * Reminder To
+             * Format: time
+             */
+            reminder_to: string;
+        };
+        /**
+         * BotStatus
+         * @enum {string}
+         */
+        BotStatus: "not_configured" | "pending" | "connected" | "error";
+        /**
+         * BotTokenIn
+         * @description `token` null: botul se oprește (tokenul se șterge).
+         */
+        BotTokenIn: {
+            /** Token */
+            token: string | null;
         };
         /** CategoryCreate */
         CategoryCreate: {
@@ -1093,6 +1433,23 @@ export interface components {
             sort_order?: number | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** ClientBalanceOut */
+        ClientBalanceOut: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Debit */
+            debit: number;
+            /** Credit */
+            credit: number;
         };
         /** ClientBrief */
         ClientBrief: {
@@ -1398,6 +1755,29 @@ export interface components {
          * @enum {string}
          */
         DeadlineRule: "day_of_next_period" | "fixed_date" | "manual";
+        /** DebtRowOut */
+        DebtRowOut: {
+            /** Client Id */
+            client_id: number;
+            /** Name */
+            name: string;
+            /** Idno */
+            idno: string;
+            /** Debit */
+            debit: number;
+            /** Credit */
+            credit: number;
+            /** Accountants */
+            accountants: string[];
+        };
+        /** DebtsOut */
+        DebtsOut: {
+            run: components["schemas"]["RunOut"] | null;
+            /** Clients */
+            clients: components["schemas"]["DebtRowOut"][];
+            /** Unmatched */
+            unmatched: components["schemas"]["UnmatchedOut"][];
+        };
         /** EntryOut */
         EntryOut: {
             /** Id */
@@ -1492,6 +1872,41 @@ export interface components {
             status: "waiting" | "late" | "received" | "issued";
         };
         /**
+         * FleetSummaryOut
+         * @description Foile de parcurs ale unui client pe o lună, pe scurt (pentru grila lunii).
+         */
+        FleetSummaryOut: {
+            /** Vehicles */
+            vehicles: number;
+            /** Issued */
+            issued: number;
+            /** Received */
+            received: number;
+            /** Missing */
+            missing: number;
+            /** Late */
+            late: boolean;
+            /**
+             * Remindable
+             * @default false
+             */
+            remindable: boolean;
+            /** Items */
+            items: components["schemas"]["FleetVehicleBrief"][];
+        };
+        /** FleetVehicleBrief */
+        FleetVehicleBrief: {
+            /** Vehicle Id */
+            vehicle_id: number;
+            /** Plate */
+            plate: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "late" | "received" | "issued";
+        };
+        /**
          * FuelType
          * @enum {string}
          */
@@ -1523,6 +1938,9 @@ export interface components {
         /** GridRowOut */
         GridRowOut: {
             client: components["schemas"]["ClientBrief"];
+            /** Accountants */
+            accountants?: components["schemas"]["AccountantBrief"][];
+            fleet?: components["schemas"]["FleetSummaryOut"] | null;
             /** Entries */
             entries: components["schemas"]["EntryOut"][];
         };
@@ -1565,6 +1983,14 @@ export interface components {
          * @enum {string}
          */
         ObligationSource: "auto" | "manual";
+        /** OneCStatusOut */
+        OneCStatusOut: {
+            /** Key Configured */
+            key_configured: boolean;
+            /** Key Hint */
+            key_hint: string | null;
+            last_run: components["schemas"]["RunOut"] | null;
+        };
         /**
          * Op
          * @enum {string}
@@ -1758,6 +2184,84 @@ export interface components {
          * @enum {string}
          */
         RecordStatus: "active" | "archived";
+        /**
+         * ReminderKind
+         * @enum {string}
+         */
+        ReminderKind: "auto_request" | "auto_reminder" | "manual";
+        /** ReminderOut */
+        ReminderOut: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["ReminderKind"];
+            status: components["schemas"]["ReminderStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /** Sent At */
+            sent_at: string | null;
+            /** Chats */
+            chats: number;
+            /** Vehicles */
+            vehicles: number;
+            /** Note */
+            note: string | null;
+        };
+        /**
+         * ReminderSettingsIn
+         * @description Reamintirile pentru odometru: cele automate pornite sau nu și intervalul în care pleacă
+         *     toate (automate și manuale).
+         */
+        ReminderSettingsIn: {
+            /** Auto Reminders */
+            auto_reminders: boolean;
+            /** Weekdays */
+            weekdays: number[];
+            /**
+             * Start
+             * Format: time
+             */
+            start: string;
+            /**
+             * End
+             * Format: time
+             */
+            end: string;
+        };
+        /**
+         * ReminderStatus
+         * @enum {string}
+         */
+        ReminderStatus: "queued" | "sent" | "skipped" | "failed";
+        /**
+         * RemindersOut
+         * @description Reamintirile unui client pe o lună și dacă se poate trimite una acum.
+         */
+        RemindersOut: {
+            /** Remind Year */
+            remind_year: number;
+            /** Remind Month */
+            remind_month: number;
+            /** Can Remind */
+            can_remind: boolean;
+            /** Blocker */
+            blocker: string | null;
+            /** Send Window */
+            send_window: string;
+            /** Window Open */
+            window_open: boolean;
+            /**
+             * Next Send At
+             * Format: date-time
+             */
+            next_send_at: string;
+            /** Reminders */
+            reminders: components["schemas"]["ReminderOut"][];
+        };
         /** ReportTypeBrief */
         ReportTypeBrief: {
             /** Id */
@@ -2015,6 +2519,29 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** RunOut */
+        RunOut: {
+            /** Id */
+            id: number;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Base Name */
+            base_name: string | null;
+            /** Rows */
+            rows: number;
+            /** Matched */
+            matched: number;
+            /** Total Debit */
+            total_debit: number;
+        };
         /** StatusBrief */
         StatusBrief: {
             /** Id */
@@ -2158,6 +2685,53 @@ export interface components {
             is_required?: boolean | null;
             /** Sort Order */
             sort_order?: number | null;
+        };
+        /** SyncResultOut */
+        SyncResultOut: {
+            /** Run Id */
+            run_id: number;
+            /** Rows */
+            rows: number;
+            /** Matched */
+            matched: number;
+            /** Unmatched */
+            unmatched: number;
+            /** Total Debit */
+            total_debit: number;
+        };
+        /** TelegramChatOut */
+        TelegramChatOut: {
+            /** Id */
+            id: number;
+            /** Tg Name */
+            tg_name: string | null;
+            /** Tg Username */
+            tg_username: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** TelegramStatusOut */
+        TelegramStatusOut: {
+            /** Bot Configured */
+            bot_configured: boolean;
+            /** Link */
+            link: string | null;
+            /** Chats */
+            chats: components["schemas"]["TelegramChatOut"][];
+        };
+        /** UnmatchedOut */
+        UnmatchedOut: {
+            /** Idno */
+            idno: string;
+            /** Name */
+            name: string;
+            /** Debit */
+            debit: number;
+            /** Credit */
+            credit: number;
         };
         /** UserBrief */
         UserBrief: {
@@ -4495,6 +5069,71 @@ export interface operations {
             };
         };
     };
+    fleet_reminders_api_clients__client_id__fleet_reminders_get: {
+        parameters: {
+            query: {
+                year: number;
+                month: number;
+            };
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remind_api_clients__client_id__fleet_remind_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_api_users_get: {
         parameters: {
             query?: {
@@ -4741,6 +5380,331 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_telegram_bot_api_settings_telegram_bot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotSettingsOut"];
+                };
+            };
+        };
+    };
+    set_telegram_bot_api_settings_telegram_bot_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BotTokenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_reminders_api_settings_telegram_bot_reminders_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telegram_status_api_clients__client_id__telegram_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_link_api_clients__client_id__telegram_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_chat_api_telegram_chats__chat_row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_balances_api_onec_balances_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BalancesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    onec_status_api_onec_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneCStatusOut"];
+                };
+            };
+        };
+    };
+    regenerate_key_api_onec_api_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyOut"];
+                };
+            };
+        };
+    };
+    debts_api_onec_debts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebtsOut"];
+                };
+            };
+        };
+    };
+    client_balance_api_onec_clients__client_id__balance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientBalanceOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_script_api_onec_script_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

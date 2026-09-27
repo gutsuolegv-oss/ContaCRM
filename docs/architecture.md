@@ -107,7 +107,7 @@ Worker-ul interoghează periodic (ex. la fiecare 10 s). Răspuns:
 
 | Șablon | Când | Parametri |
 |---|---|---|
-| `km_request` | ultima zi a lunii, 18:00, dacă lipsesc datele | `plate`, `model`, `month`, `last_odometer` |
+| `km_request` | ultima zi a lunii, 15:00, dacă lipsesc datele | `plate`, `model`, `month`, `last_odometer` |
 | `km_reminder` | la 3 zile după, dacă tot lipsesc | `plate`, `month` |
 | `km_ack` | după primirea odometrului | `plate`, `value`, `km_driven` |
 | `report_deadline` | cu 3 zile înainte de termen (către contabil) | `report`, `period`, `count` |
@@ -115,7 +115,7 @@ Worker-ul interoghează periodic (ex. la fiecare 10 s). Răspuns:
 
 ## Fluxul Parc auto (exemplu complet)
 
-1. `beat` pornește în ultima zi a lunii la 18:00 sarcina `check_missing_odometer`.
+1. `beat` pornește în ultima zi a lunii la 15:00 sarcina `check_missing_odometer`.
 2. `worker` găsește automobilele fără date și pentru fiecare face `POST /v1/messages` cu `km_request`.
 3. `notify-gateway` trimite mesajul prin `egress-proxy` → `api.telegram.org`.
 4. Clientul răspunde `123906`. Gateway-ul îl primește prin long polling, validează numărul și îl pune în inbox.

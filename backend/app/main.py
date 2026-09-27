@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from app.api import auth, classifiers, clients, fleet, grid, health, settings, users
+from app.api import auth, classifiers, clients, fleet, grid, health, onec, settings, telegram, users
 from app.services.errors import (
     ConflictError,
     ForbiddenError,
@@ -34,6 +34,8 @@ def create_app() -> FastAPI:
     app.include_router(fleet.router)
     app.include_router(users.router)
     app.include_router(settings.router)
+    app.include_router(telegram.router)
+    app.include_router(onec.router)
     app.add_exception_handler(ServiceError, _service_error)
     return app
 

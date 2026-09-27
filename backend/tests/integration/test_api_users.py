@@ -203,7 +203,11 @@ async def test_audit_never_contains_password(
         json={"password": "alta-parola-12345"},
         headers=admin_h,
     )
-    rows = (await session.scalars(select(AuditLog).where(AuditLog.entity_type == "users"))).all()
+    rows = (
+        await session.scalars(
+            select(AuditLog).where(AuditLog.entity_type == "users").order_by(AuditLog.id)
+        )
+    ).all()
     assert len(rows) == 2
     for row in rows:
         values = {**(row.old_values or {}), **(row.new_values or {})}

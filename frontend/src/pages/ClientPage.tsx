@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import type {
@@ -78,7 +78,9 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export function ClientPage() {
   const id = Number(useParams().id);
   const me = useMe();
-  const [tab, setTab] = useState<Tab>("legal");
+  // ?tab=parc deschide direct parcul auto (ex. din grila lunii)
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "parc" ? "fleet" : "legal");
   const [diff, setDiff] = useState<RecalculateDiff | null>(null);
   const client = useQuery({
     queryKey: ["client", id],

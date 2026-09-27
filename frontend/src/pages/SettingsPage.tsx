@@ -3,12 +3,21 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
-import type { OrganizationOut, OrganizationUpdate } from "../api/types";
+import type {
+  ApiKeyOut,
+  BotSettingsOut,
+  OneCStatusOut,
+  OrganizationOut,
+  OrganizationUpdate,
+} from "../api/types";
 import { useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
-import { Icon } from "../components/Icon";
+import { CopyButton } from "../components/ui";
+import { formatDate } from "../format";
+import { Icon, type IconName } from "../components/Icon";
 
 type Field = Exclude<keyof OrganizationOut, "id">;
 type Form = Record<Field, string>;
@@ -52,7 +61,57 @@ function toForm(org: OrganizationOut): Form {
   return Object.fromEntries(fields.map((k) => [k, org[k] ?? ""])) as Form;
 }
 
+type SettingsTab = "company" | "telegram" | "onec";
+
 export function SettingsPage() {
+  const me = useMe();
+  const canEdit = me.role === "admin";
+  // tabul e în adresă (/setari?tab=telegram): rămâne la reîncărcare și se poate trimite ca link
+  const [params, setParams] = useSearchParams();
+  const fromUrl = params.get("tab");
+  const tab: SettingsTab =
+    fromUrl === "telegram" ? "telegram" : fromUrl === "1c" ? "onec" : "company";
+  const tabButton = (value: SettingsTab, label: string, icon: IconName) => (
+    <button
+      className={tab === value ? "on" : ""}
+      onClick={() =>
+        setParams(value === "company" ? {} : { tab: value === "onec" ? "1c" : value }, {
+          replace: true,
+        })
+      }
+    >
+      <Icon name={icon} size={16} />
+      {label}
+    </button>
+  );
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Setări</h1>
+          <p>
+            {canEdit
+              ? "Configurarea biroului, folosită în toată aplicația."
+              : "Configurarea biroului (doar adminul o modifică)."}
+          </p>
+        </div>
+      </div>
+      <div className="card">
+        <div className="tabs">
+          {tabButton("company", "Date companie", "clients")}
+          {tabButton("telegram", "Telegram", "send")}
+          {tabButton("onec", "1C", "database")}
+        </div>
+        {tab === "company" && <CompanyTab />}
+        {tab === "telegram" && <TelegramBotSection canEdit={canEdit} />}
+        {tab === "onec" && <OneCTab canEdit={canEdit} />}
+      </div>
+    </>
+  );
+}
+
+function CompanyTab() {
   const org = useQuery({
     queryKey: ["organization"],
     queryFn: () => api.get<OrganizationOut>("/api/settings/organization"),
@@ -92,18 +151,7 @@ function SettingsForm({ org }: { org: OrganizationOut }) {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Setări</h1>
-          <p>
-            {canEdit
-              ? "Datele biroului, folosite în toată aplicația."
-              : "Datele biroului (doar adminul le modifică)."}
-          </p>
-        </div>
-      </div>
       <form
-        className="card"
         onSubmit={(e) => {
           e.preventDefault();
           setMessage(null);
@@ -168,5 +216,450 @@ function SettingsForm({ org }: { org: OrganizationOut }) {
         </div>
       </form>
     </>
+  );
+}
+
+const BOT_STATUS: Record<BotSettingsOut["status"], [string, string]> = {
+  not_configured: ["Neconfigurat", "b-grey"],
+  pending: ["Se verifică tokenul…", "b-warn"],
+  connected: ["Conectat", "b-ok"],
+  error: ["Eroare", "b-bad"],
+};
+
+/** Tokenul botului (doar adminul îl setează; nu se mai afișează după salvare) și starea lui. */
+function TelegramBotSection({ canEdit }: { canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState("");
+  const bot = useQuery({
+    queryKey: ["telegram-bot"],
+    queryFn: () => api.get<BotSettingsOut>("/api/settings/telegram-bot"),
+    // cât timp procesul botului verifică tokenul, starea se reîmprospătează des
+    refetchInterval: (q) =>
+      q.state.data?.configured && q.state.data.status !== "connected" ? 3000 : 30000,
+  });
+  const save = useMutation({
+    mutationFn: (value: string | null) =>
+      api.put<BotSettingsOut>("/api/settings/telegram-bot", { token: value }),
+    onSuccess: (data) => {
+      setToken("");
+      queryClient.setQueryData(["telegram-bot"], data);
+      // linkurile din cartele depind de starea botului
+      void queryClient.invalidateQueries({ queryKey: ["telegram"] });
+    },
+  });
+  const data = bot.data;
+  const [label, cls] = data ? BOT_STATUS[data.status] : ["", ""];
+
+  return (
+    <div className="card-b" style={{ padding: 24 }}>
+      <div className="form-section">
+        <div>
+          <h3>Bot</h3>
+          <p>Clienții își transmit kilometrajul automobilelor prin bot.</p>
+        </div>
+        <div className="stack">
+          {bot.error && <div className="error">{bot.error.message}</div>}
+          {save.error && <div className="error">{save.error.message}</div>}
+          {!data ? (
+            <div className="loading">Se încarcă…</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span className={`badge ${cls}`}>{label}</span>
+                {data.status === "connected" && data.username && (
+                  <a href={`https://t.me/${data.username}`} target="_blank" rel="noreferrer">
+                    @{data.username}
+                  </a>
+                )}
+                {data.token_hint && (
+                  <span className="muted mono" style={{ fontSize: 12 }}>
+                    token {data.token_hint}
+                  </span>
+                )}
+              </div>
+              {data.status === "error" && data.status_message && (
+                <div className="callout warn">
+                  <Icon name="alert" />
+                  <div style={{ fontSize: 13 }}>{data.status_message}</div>
+                </div>
+              )}
+              {data.configured && !data.running && (
+                <div className="callout warn">
+                  <Icon name="alert" />
+                  <div style={{ fontSize: 13 }}>
+                    Procesul botului nu rulează pe server, deci tokenul nu a fost preluat.
+                    Pornește-l cu:{" "}
+                    <code>
+                      docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile bot
+                      up -d bot
+                    </code>
+                  </div>
+                </div>
+              )}
+              {canEdit ? (
+                <form
+                  style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    save.mutate(token.trim());
+                  }}
+                >
+                  <input
+                    className="input mono"
+                    style={{ flex: "1 1 320px" }}
+                    type="password"
+                    autoComplete="off"
+                    placeholder={
+                      data.configured
+                        ? "Token nou (înlocuiește tokenul salvat)"
+                        : "Tokenul de la @BotFather"
+                    }
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    required
+                  />
+                  <button className="btn primary" type="submit" disabled={save.isPending}>
+                    <Icon name="check" size={16} /> Salvează tokenul
+                  </button>
+                  {data.configured && (
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      disabled={save.isPending}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Oprești botul? Clienții nu vor mai putea transmite kilometrajul până pui un token nou.",
+                          )
+                        )
+                          save.mutate(null);
+                      }}
+                    >
+                      Oprește botul
+                    </button>
+                  )}
+                </form>
+              ) : (
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Doar adminul schimbă tokenul botului.
+                </div>
+              )}
+              {canEdit && !data.configured && (
+                <div className="hint muted" style={{ fontSize: 12 }}>
+                  Cum obții tokenul: în Telegram deschide @BotFather, trimite /newbot, alege un nume
+                  și un nume de utilizator care se termină în „bot”. BotFather îți dă tokenul (ex.
+                  123456789:AAH…); lipește-l aici. Nu-l trimite nimănui prin chat.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      {data && (
+        <div className="form-section">
+          <div>
+            <h3>Reamintiri</h3>
+            <p>Mesajele prin care botul le cere clienților kilometrajul.</p>
+          </div>
+          <ReminderSettings data={data} canEdit={canEdit} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DAYS = ["L", "Ma", "Mi", "J", "V", "S", "D"];
+
+/** Reamintirile pentru kilometraj: cele automate și intervalul în care pleacă toate. */
+function ReminderSettings({ data, canEdit }: { data: BotSettingsOut; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const saved = {
+    auto: data.auto_reminders,
+    days: data.reminder_weekdays,
+    start: data.reminder_from.slice(0, 5),
+    end: data.reminder_to.slice(0, 5),
+  };
+  const [form, setForm] = useState(saved);
+  const changed = JSON.stringify(form) !== JSON.stringify(saved);
+  const save = useMutation({
+    mutationFn: () =>
+      api.put<BotSettingsOut>("/api/settings/telegram-bot/reminders", {
+        auto_reminders: form.auto,
+        weekdays: form.days,
+        start: form.start,
+        end: form.end,
+      }),
+    onSuccess: (result) => queryClient.setQueryData(["telegram-bot"], result),
+  });
+  const toggleDay = (day: number) =>
+    setForm((f) => ({
+      ...f,
+      days: f.days.includes(day) ? f.days.filter((d) => d !== day) : [...f.days, day].sort(),
+    }));
+
+  return (
+    <form
+      className="reminder-settings"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+    >
+      <label className="check-line">
+        <input
+          type="checkbox"
+          checked={form.auto}
+          disabled={!canEdit}
+          onChange={(e) => setForm((f) => ({ ...f, auto: e.target.checked }))}
+        />
+        <span>
+          Automate
+          <span className="muted">
+            Clienții cu Telegram legat și automobile fără date primesc un mesaj în ultima zi a lunii
+            la 15:00 și o reamintire pe 3 ale lunii următoare la 10:00, câte o dată pe lună.
+          </span>
+        </span>
+      </label>
+      <div className="field">
+        <label>Se trimit doar în zilele și orele acestea (automate și manuale)</label>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="seg day-picker">
+            {DAYS.map((name, i) => (
+              <button
+                key={name}
+                type="button"
+                className={form.days.includes(i + 1) ? "on" : ""}
+                disabled={!canEdit}
+                onClick={() => toggleDay(i + 1)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+            de la
+            <input
+              className="input"
+              type="time"
+              value={form.start}
+              disabled={!canEdit}
+              onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))}
+              required
+            />
+            până la
+            <input
+              className="input"
+              type="time"
+              value={form.end}
+              disabled={!canEdit}
+              onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))}
+              required
+            />
+          </span>
+        </div>
+        <span className="hint">
+          În afara intervalului, reamintirile așteaptă începutul următorului interval. Între două
+          mesaje automate către același client trec cel puțin 24 de ore.
+        </span>
+      </div>
+      {save.error && <div className="error">{save.error.message}</div>}
+      {canEdit && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn primary sm"
+            type="submit"
+            disabled={!changed || form.days.length === 0 || save.isPending}
+          >
+            <Icon name="check" size={14} /> Salvează reamintirile
+          </button>
+          {changed && (
+            <button className="btn sm ghost" type="button" onClick={() => setForm(saved)}>
+              Renunță
+            </button>
+          )}
+        </div>
+      )}
+    </form>
+  );
+}
+
+const MDL = new Intl.NumberFormat("ro-MD", {
+  style: "currency",
+  currency: "MDL",
+  currencyDisplay: "code",
+});
+
+/** Integrarea cu 1C: ultima sincronizare, cheia scriptului și pașii de instalare. */
+function OneCTab({ canEdit }: { canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ["onec-status"],
+    queryFn: () => api.get<OneCStatusOut>("/api/onec/status"),
+  });
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const regenerate = useMutation({
+    mutationFn: () => api.post<ApiKeyOut>("/api/onec/api-key"),
+    onSuccess: (result) => {
+      setNewKey(result.key);
+      queryClient.setQueryData(["onec-status"], result.status);
+    },
+  });
+  const download = useMutation({
+    mutationFn: () => api.download("/api/onec/script", "export-balances.ps1"),
+  });
+  const data = status.data;
+  const run = data?.last_run;
+
+  return (
+    <div className="card-b" style={{ padding: 24 }}>
+      {status.error && <div className="error">{status.error.message}</div>}
+      <div className="form-section">
+        <div>
+          <h3>Sincronizare</h3>
+          <p>Soldurile clienților față de birou, trimise zilnic de scriptul din 1C.</p>
+        </div>
+        <div className="stack" style={{ fontSize: 13 }}>
+          {!data ? (
+            <div className="loading">Se încarcă…</div>
+          ) : run ? (
+            <>
+              <div>
+                <span className="badge b-ok">Ultima sincronizare</span>{" "}
+                {new Date(run.received_at).toLocaleString("ro-MD")} · soldurile la{" "}
+                {formatDate(run.as_of)}
+                {run.base_name && <span className="muted"> · baza {run.base_name}</span>}
+              </div>
+              <div className="muted">
+                {run.rows} contragenți primiți, {run.matched} potriviți cu clienții din CRM ·
+                datorii în total {MDL.format(run.total_debit)}. Detalii pe pagina Restanțe 1C.
+              </div>
+            </>
+          ) : (
+            <div className="muted">Nicio sincronizare încă.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div>
+          <h3>Cheia scriptului</h3>
+          <p>Scriptul o trimite la fiecare sincronizare. Se afișează o singură dată.</p>
+        </div>
+        <div className="stack">
+          {regenerate.error && <div className="error">{regenerate.error.message}</div>}
+          {newKey ? (
+            <div className="callout warn">
+              <Icon name="key" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, marginBottom: 6 }}>
+                  Copiaz-o acum în <code>config.json</code> (câmpul <code>api_key</code>): după ce
+                  părăsești pagina nu se mai poate vedea.
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    className="input mono"
+                    style={{ flex: 1, minWidth: 0, fontSize: 12 }}
+                    value={newKey}
+                    readOnly
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <CopyButton value={newKey} label="Copiază cheia" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            data && (
+              <div style={{ fontSize: 13 }}>
+                {data.key_configured ? (
+                  <>
+                    <span className="badge b-ok">Cheie activă</span>{" "}
+                    <span className="muted mono">{data.key_hint}</span>
+                  </>
+                ) : (
+                  <span className="badge b-grey">Nicio cheie</span>
+                )}
+              </div>
+            )
+          )}
+          {canEdit ? (
+            <div>
+              <button
+                className="btn sm"
+                disabled={regenerate.isPending}
+                onClick={() => {
+                  if (
+                    !data?.key_configured ||
+                    window.confirm(
+                      "Generezi o cheie nouă? Scriptul cu cheia veche nu mai poate trimite date.",
+                    )
+                  )
+                    regenerate.mutate();
+                }}
+              >
+                <Icon name="key" size={14} />{" "}
+                {data?.key_configured ? "Cheie nouă" : "Generează cheia"}
+              </button>
+            </div>
+          ) : (
+            <div className="muted" style={{ fontSize: 13 }}>
+              Doar adminul generează cheia.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div>
+          <h3>Scriptul pentru 1C</h3>
+          <p>
+            Rulează pe calculatorul Windows cu 1C și baza de tip fișier; nu cere publicare pe web.
+          </p>
+        </div>
+        <div className="stack" style={{ fontSize: 13 }}>
+          <div>
+            <button
+              className="btn sm"
+              disabled={download.isPending}
+              onClick={() => download.mutate()}
+            >
+              <Icon name="reports" size={14} /> Descarcă export-balances.ps1
+            </button>
+          </div>
+          {download.error && <div className="error">{download.error.message}</div>}
+          <ol className="steps">
+            <li>
+              Pune scriptul într-un folder pe calculatorul cu 1C, de ex. <code>C:\ContaCRM</code>.
+            </li>
+            <li>
+              O singură dată, ca administrator, înregistrează conectorul COM al 1C:{" "}
+              <code>regsvr32 "C:\Program Files\1cv8\&lt;versiunea&gt;\bin\comcntr.dll"</code>
+            </li>
+            <li>
+              Rulează scriptul o dată: creează <code>config.json</code>. Completează calea bazei, un
+              utilizator 1C doar pentru citire și parola lui, <code>crm_url</code> ={" "}
+              <code>{window.location.origin}</code> și cheia de mai sus.
+            </li>
+            <li>
+              <code>.\export-balances.ps1 -Descopera</code> listează numele din configurația 1C
+              (registrul, planul de conturi, câmpul cu codul fiscal). Ajustează-le în{" "}
+              <code>config.json</code> dacă diferă.
+            </li>
+            <li>
+              <code>.\export-balances.ps1 -Proba</code> arată soldurile fără să le trimită; apoi
+              fără parametri le trimite în CRM.
+            </li>
+            <li>
+              Programează-l zilnic în Task Scheduler:{" "}
+              <code>powershell -ExecutionPolicy Bypass -File C:\ContaCRM\export-balances.ps1</code>
+            </li>
+          </ol>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Pentru 1C pe 32 de biți, folosește PowerShell din{" "}
+            <code>C:\Windows\SysWOW64\WindowsPowerShell\v1.0\</code>. Conexiunea COM ocupă o licență
+            1C cât rulează scriptul.
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

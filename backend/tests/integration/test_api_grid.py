@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -6,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Client, Status, StatusSet, User, UserRole
+from app.models import Client, FuelType, Status, StatusSet, User, UserRole, Vehicle
 from app.seed.classifier import seed_classifier
 from app.services.matrix import MatrixService
 from tests.integration.conftest import AuthHeaders
@@ -70,6 +71,8 @@ async def test_generate_and_view(api: AsyncClient, world: World) -> None:
     assert [rt["code"] for rt in grid["report_types"]] == [
         "TVA12", "FACT_LIVR", "FACT_PROC", "EXTRASE",
     ]  # fmt: skip
+    # contabilii actuali ai fiecărui client (Vinăria nu are)
+    assert [[a["id"] for a in r["accountants"]] for r in grid["rows"]] == [[world.ana_user.id], []]
     tva = cell(grid, world.mine, "TVA12")
     assert tva["deadline"] == "2026-10-26"
     assert tva["is_overdue"] is False
@@ -182,3 +185,56 @@ async def test_empty_month(api: AsyncClient, world: World) -> None:
     grid = await api.get("/api/grid", params={"year": 2030, "month": 1}, headers=world.admin)
     assert grid.status_code == 200
     assert grid.json()["periods"] == grid.json()["rows"] == []
+
+
+async def test_fleet_summary_in_rows(api: AsyncClient, world: World, session: AsyncSession) -> None:
+    hilux = Vehicle(
+        client_id=world.mine.id,
+        plate="BLA 482",
+        model="Toyota Hilux",
+        fuel_type=FuelType.MOTORINA,
+        fuel_norm=Decimal("9.8"),
+        initial_odometer=40000,
+    )
+    logan = Vehicle(
+        client_id=world.mine.id,
+        plate="BLA 915",
+        model="Dacia Logan",
+        fuel_type=FuelType.BENZINA,
+        fuel_norm=Decimal("7.2"),
+        initial_odometer=10000,
+    )
+    session.add_all([hilux, logan])
+    await session.flush()
+    await api.post("/api/grid/generate", params=SEPT, headers=world.admin)
+    reading = {"end_odometer": 41640, "source": "email", "received_on": "2026-09-27"}
+    put = await api.put(
+        f"/api/vehicles/{hilux.id}/readings/2026/9", json=reading, headers=world.ana
+    )
+    assert put.status_code == 200, put.text
+
+    def fleet(grid: dict[str, Any], client: Client) -> Any:
+        return next(r for r in grid["rows"] if r["client"]["id"] == client.id)["fleet"]
+
+    grid = (await api.get("/api/grid", params=SEPT, headers=world.admin)).json()
+    summary = fleet(grid, world.mine)
+    assert {k: summary[k] for k in ("vehicles", "issued", "received", "missing", "late")} == {
+        "vehicles": 2,
+        "issued": 0,
+        "received": 1,
+        "missing": 1,
+        "late": False,  # „azi” e 27.09: septembrie nu s-a încheiat
+    }
+    assert [(i["plate"], i["status"]) for i in summary["items"]] == [
+        ("BLA 482", "received"),
+        ("BLA 915", "waiting"),
+    ]
+    assert fleet(grid, world.other) is None  # fără automobile
+
+    await api.post(f"/api/vehicles/{hilux.id}/readings/2026/9/waybill", headers=world.ana)
+    # august s-a încheiat: automobilele fără date sunt întârziate
+    await api.post("/api/grid/generate", params=AUG, headers=world.admin)
+    sept = fleet((await api.get("/api/grid", params=SEPT, headers=world.ana)).json(), world.mine)
+    assert (sept["issued"], sept["received"]) == (1, 0)
+    aug = fleet((await api.get("/api/grid", params=AUG, headers=world.ana)).json(), world.mine)
+    assert (aug["missing"], aug["late"]) == (2, True)

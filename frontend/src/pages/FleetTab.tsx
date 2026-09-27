@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import type {
@@ -10,12 +11,15 @@ import type {
   FleetMonthOut,
   FleetRowOut,
   ReadingIn,
+  RemindersOut,
+  TelegramStatusOut,
   VehicleCreate,
   VehicleOut,
   WaybillOut,
 } from "../api/types";
 import { ErrorBox } from "../components/ErrorBox";
 import { Icon } from "../components/Icon";
+import { CopyButton } from "../components/ui";
 import { formatDate, formatMonth } from "../format";
 
 const FUEL: Record<VehicleCreate["fuel_type"], string> = {
@@ -65,8 +69,18 @@ type Modal =
 
 export function FleetTab({ client }: { client: ClientOut }) {
   const queryClient = useQueryClient();
-  const months = recentMonths();
-  const [period, setPeriod] = useState<Period>(months[0]!);
+  // luna din adresă (?an=2026&luna=8, ex. din grila lunii), altfel luna curentă
+  const [params] = useSearchParams();
+  const fromUrl: Period | null =
+    Number(params.get("an")) && Number(params.get("luna"))
+      ? { year: Number(params.get("an")), month: Number(params.get("luna")) }
+      : null;
+  const recent = recentMonths();
+  const months =
+    fromUrl && !recent.some((m) => m.year === fromUrl.year && m.month === fromUrl.month)
+      ? [...recent, fromUrl]
+      : recent;
+  const [period, setPeriod] = useState<Period>(fromUrl ?? recent[0]!);
   const [modal, setModal] = useState<Modal | null>(null);
 
   const fleet = useQuery({
@@ -202,10 +216,11 @@ export function FleetTab({ client }: { client: ClientOut }) {
             <b>
               {late} {late === 1 ? "automobil" : "automobile"} fără date la odometru
             </b>{" "}
-            după încheierea lunii. Cere-le clientului și introdu-le manual.
+            după încheierea lunii. Trimite o reamintire pe Telegram sau introdu datele manual.
           </div>
         </div>
       )}
+      <RemindersBar clientId={client.id} period={period} />
 
       <div className="card" style={{ boxShadow: "none" }}>
         <div className="table-wrap">
@@ -316,30 +331,263 @@ export function FleetTab({ client }: { client: ClientOut }) {
         </div>
       </div>
 
-      <div className="card" style={{ boxShadow: "none" }}>
-        <div className="card-h">
-          <h3>Foi de parcurs emise</h3>
-        </div>
-        {waybills.data?.length ? (
-          waybills.data.map((w) => (
-            <div key={w.id} className="list-item">
-              <Icon name="reports" />
-              <div className="grow">
-                <div className="t mono">{w.number}</div>
-                <div className="s">
-                  {w.plate} · {formatMonth(w.year, w.month)} · {km(w.km)} · {liters(w.fuel_liters)}
+      <div className="grid g2" style={{ alignItems: "start" }}>
+        <div className="card" style={{ boxShadow: "none" }}>
+          <div className="card-h">
+            <h3>Foi de parcurs emise</h3>
+          </div>
+          {waybills.data?.length ? (
+            waybills.data.map((w) => (
+              <div key={w.id} className="list-item">
+                <Icon name="reports" />
+                <div className="grow">
+                  <div className="t mono">{w.number}</div>
+                  <div className="s">
+                    {w.plate} · {formatMonth(w.year, w.month)} · {km(w.km)} ·{" "}
+                    {liters(w.fuel_liters)}
+                  </div>
                 </div>
+                <button className="btn sm" onClick={() => setModal({ kind: "waybill", id: w.id })}>
+                  Deschide
+                </button>
               </div>
-              <button className="btn sm" onClick={() => setModal({ kind: "waybill", id: w.id })}>
-                Deschide
-              </button>
-            </div>
-          ))
-        ) : (
-          <div className="card-b muted">Nicio foaie emisă încă.</div>
-        )}
+            ))
+          ) : (
+            <div className="card-b muted">Nicio foaie emisă încă.</div>
+          )}
+        </div>
+        <TelegramCard clientId={client.id} />
       </div>
       {modals}
+    </div>
+  );
+}
+
+// --- Reamintiri ---
+
+const REMINDER_KIND: Record<RemindersOut["reminders"][number]["kind"], string> = {
+  auto_request: "cerere automată (sfârșit de lună)",
+  auto_reminder: "reamintire automată",
+  manual: "reamintire manuală",
+};
+
+/** „luni, 09:00” (sau „azi, 09:00” / „mâine, 09:00”). */
+function whenLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const days = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
+      86_400_000,
+  );
+  const day =
+    days === 0
+      ? "azi"
+      : days === 1
+        ? "mâine"
+        : ["duminică", "luni", "marți", "miercuri", "joi", "vineri", "sâmbătă"][d.getDay()];
+  return `${day}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function reminderResult(
+  r: RemindersOut["reminders"][number],
+  overview: RemindersOut,
+): [string, string] {
+  if (r.status === "queued")
+    return overview.window_open
+      ? ["se trimite…", "b-grey"]
+      : [`programată: ${whenLabel(overview.next_send_at)}`, "b-warn"];
+  if (r.status === "sent")
+    return [`trimisă la ${r.chats} ${r.chats === 1 ? "chat" : "chat-uri"}`, "b-ok"];
+  if (r.status === "failed") return ["nu a ajuns", "b-bad"];
+  return ["nu a fost nevoie", "b-grey"];
+}
+
+function dateTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Reamintirile pe Telegram pentru luna aleasă: butonul manual și istoricul. */
+function RemindersBar({ clientId, period }: { clientId: number; period: Period }) {
+  const queryClient = useQueryClient();
+  const key = ["fleet-reminders", clientId, period.year, period.month];
+  const data = useQuery({
+    queryKey: key,
+    queryFn: () =>
+      api.get<RemindersOut>(`/api/clients/${clientId}/fleet/reminders`, {
+        year: period.year,
+        month: period.month,
+      }),
+    // cât timp o reamintire e în coadă, starea se reîmprospătează des
+    refetchInterval: (q) =>
+      q.state.data?.reminders.some((r) => r.status === "queued") ? 3000 : false,
+  });
+  const remind = useMutation({
+    mutationFn: () => api.post<RemindersOut>(`/api/clients/${clientId}/fleet/remind`),
+    onSuccess: (result) => {
+      queryClient.setQueryData(key, result);
+      void queryClient.invalidateQueries({ queryKey: ["grid"] });
+    },
+  });
+  const r = data.data;
+  if (!r) return null;
+
+  return (
+    <div className="reminders">
+      <div className="reminders-head">
+        <button
+          className="btn sm"
+          disabled={!r.can_remind || remind.isPending}
+          title={r.blocker ?? "Trimite clientului pe Telegram automobilele fără date"}
+          onClick={() => remind.mutate()}
+        >
+          🔔 Reamintește pe Telegram
+        </button>
+        <span className="muted" style={{ fontSize: 12 }}>
+          {r.blocker ??
+            (r.window_open
+              ? "Clientul primește în bot butoane cu automobilele fără date."
+              : `Acum e în afara intervalului de trimitere; pleacă ${whenLabel(r.next_send_at)}.`)}{" "}
+          Automat: ultima zi a lunii la 15:00 și pe 3 la 10:00 · se trimit {r.send_window}.
+        </span>
+      </div>
+      {remind.error && <div className="error">{remind.error.message}</div>}
+      {r.reminders.length > 0 && (
+        <div className="reminders-list">
+          {r.reminders.map((x) => {
+            const [label, cls] = reminderResult(x, r);
+            return (
+              <div key={x.id} title={x.note ?? undefined}>
+                <span className="muted mono">{dateTime(x.sent_at ?? x.created_at)}</span>
+                <span>
+                  {REMINDER_KIND[x.kind]}
+                  {x.created_by_name && ` · ${x.created_by_name}`}
+                </span>
+                <span className={`badge ${cls}`}>{label}</span>
+                {x.note && <span className="muted">{x.note}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Telegram ---
+
+/** Linkul personal al clientului pentru bot și chat-urile legate de el. */
+function TelegramCard({ clientId }: { clientId: number }) {
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ["telegram", clientId],
+    queryFn: () => api.get<TelegramStatusOut>(`/api/clients/${clientId}/telegram`),
+  });
+  const done = (data: TelegramStatusOut) => queryClient.setQueryData(["telegram", clientId], data);
+  const regenerate = useMutation({
+    mutationFn: () => api.post<TelegramStatusOut>(`/api/clients/${clientId}/telegram/link`),
+    onSuccess: done,
+  });
+  const unlink = useMutation({
+    mutationFn: (id: number) => api.del<TelegramStatusOut>(`/api/telegram-chats/${id}`),
+    onSuccess: done,
+  });
+  const error = status.error ?? regenerate.error ?? unlink.error;
+  const data = status.data;
+
+  return (
+    <div className="card" style={{ boxShadow: "none" }}>
+      <div className="card-h">
+        <h3>Telegram</h3>
+      </div>
+      <div className="card-b stack">
+        {error && <div className="error">{error.message}</div>}
+        {!data ? (
+          <div className="loading">Se încarcă…</div>
+        ) : !data.bot_configured ? (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Botul Telegram nu e conectat încă. Adminul îl configurează în Setări → Telegram.
+          </div>
+        ) : (
+          <>
+            <div className="muted" style={{ fontSize: 13 }}>
+              Trimite-i clientului linkul personal. După ce îl deschide, apasă „Transmite parcurs”
+              în bot, iar kilometrajul apare aici, cu sursa Telegram.
+            </div>
+            {data.link ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  className="input mono"
+                  style={{ flex: 1, minWidth: 0, fontSize: 12 }}
+                  value={data.link}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                />
+                <CopyButton value={data.link} label="Copiază linkul" />
+                <button
+                  className="btn sm ghost"
+                  disabled={regenerate.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Generezi un link nou? Cel vechi nu va mai lega chat-uri noi; cele deja legate rămân.",
+                      )
+                    )
+                      regenerate.mutate();
+                  }}
+                >
+                  Link nou
+                </button>
+              </div>
+            ) : (
+              <div>
+                <button
+                  className="btn sm primary"
+                  disabled={regenerate.isPending}
+                  onClick={() => regenerate.mutate()}
+                >
+                  Generează linkul
+                </button>
+              </div>
+            )}
+          </>
+        )}
+        {data && data.chats.length > 0 && (
+          <div>
+            <div className="strong" style={{ fontSize: 13, marginBottom: 4 }}>
+              Chat-uri legate
+            </div>
+            {data.chats.map((c) => (
+              <div key={c.id} className="list-item" style={{ padding: "6px 0" }}>
+                <Icon name="user" />
+                <div className="grow">
+                  <div className="t">{c.tg_name ?? "Fără nume"}</div>
+                  <div className="s">
+                    {c.tg_username ? `@${c.tg_username} · ` : ""}legat din{" "}
+                    {formatDate(c.created_at)}
+                  </div>
+                </div>
+                <button
+                  className="btn sm ghost"
+                  disabled={unlink.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Deconectezi ${c.tg_name ?? "chat-ul"}? Nu va mai putea trimite date.`,
+                      )
+                    )
+                      unlink.mutate(c.id);
+                  }}
+                >
+                  Deconectează
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

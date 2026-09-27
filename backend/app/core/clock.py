@@ -9,5 +9,10 @@ def local_today() -> date:
     return datetime.now(ZoneInfo(get_settings().timezone)).date()
 
 
+def local_now() -> datetime:
+    """Ora locală a biroului (pentru programări, ex. reamintirea de la 15:00)."""
+    return datetime.now(ZoneInfo(get_settings().timezone))
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)

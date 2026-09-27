@@ -33,6 +33,8 @@ export function Layout() {
   const work: NavItem[] = [
     { to: "/grila", label: "Grila lunii", icon: "grid" },
     { to: "/clienti", label: "Clienți", icon: "clients" },
+    // datoriile clienților: doar admin și director
+    ...(isEditor(me) ? [{ to: "/restante", label: "Restanțe 1C", icon: "coin" as const }] : []),
   ];
   // Configurarea: doar admin și director (contabilul nu vede secțiunea)
   const admin: NavItem[] = [

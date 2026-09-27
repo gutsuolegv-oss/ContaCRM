@@ -7,6 +7,7 @@ from pydantic import Field
 from app.models import PeriodType
 from app.schemas.classifier import ReportTypeBrief
 from app.schemas.common import InputModel, ORMModel
+from app.schemas.fleet import FleetSummaryOut
 
 
 class EntryUpdate(InputModel):
@@ -69,8 +70,15 @@ class ClientBrief(ORMModel):
     idno: str
 
 
+class AccountantBrief(ORMModel):
+    id: int
+    full_name: str
+
+
 class GridRowOut(ORMModel):
     client: ClientBrief
+    accountants: list[AccountantBrief] = Field(default_factory=list)  # contabilii actuali
+    fleet: FleetSummaryOut | None = None  # foile de parcurs pe lună, dacă are automobile
     entries: list[EntryOut]
 
 

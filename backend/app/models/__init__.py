@@ -22,29 +22,46 @@ from app.models.execution import PeriodType, ReportEntry, ReportEntryStep, Repor
 from app.models.fleet import FuelType, OdometerReading, ReadingSource, Vehicle, Waybill
 from app.models.holiday import Holiday
 from app.models.matrix import ClientReportType, ObligationSource
+from app.models.onec import ClientBalance, OneCIntegration, OneCSyncRun
 from app.models.organization import Organization
+from app.models.telegram import (
+    BotStatus,
+    FleetReminder,
+    ReminderKind,
+    ReminderStatus,
+    TelegramBot,
+    TelegramChat,
+    TelegramLinkCode,
+)
 from app.models.user import RefreshToken, User, UserRole
 
 __all__ = [
     "AuditAction",
     "AuditLog",
+    "BotStatus",
     "Client",
     "ClientAssignment",
+    "ClientBalance",
     "ClientBankAccount",
     "ClientContact",
     "ClientReportType",
     "ClientStatus",
     "DeadlineRule",
+    "FleetReminder",
     "FuelType",
     "Holiday",
     "LegalForm",
     "ObligationSource",
     "OdometerReading",
+    "OneCIntegration",
+    "OneCSyncRun",
     "Organization",
     "PeriodType",
     "Periodicity",
     "ReadingSource",
     "RefreshToken",
+    "ReminderKind",
+    "ReminderStatus",
     "ReportCategory",
     "ReportEntry",
     "ReportEntryStep",
@@ -55,6 +72,9 @@ __all__ = [
     "RuleAction",
     "Status",
     "StatusSet",
+    "TelegramBot",
+    "TelegramChat",
+    "TelegramLinkCode",
     "User",
     "UserRole",
     "Vehicle",
