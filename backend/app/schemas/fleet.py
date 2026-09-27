@@ -128,6 +128,23 @@ class FleetRowOut(InputModel):
     status: FleetStatus
 
 
+class FleetVehicleBrief(InputModel):
+    vehicle_id: int
+    plate: str
+    status: FleetStatus
+
+
+class FleetSummaryOut(InputModel):
+    """Foile de parcurs ale unui client pe o lună, pe scurt (pentru grila lunii)."""
+
+    vehicles: int
+    issued: int  # foaie emisă
+    received: int  # odometru primit, foaie neemisă încă
+    missing: int  # fără odometru
+    late: bool  # lipsesc date și luna s-a încheiat
+    items: list[FleetVehicleBrief]
+
+
 class FleetMonthOut(InputModel):
     year: int
     month: int

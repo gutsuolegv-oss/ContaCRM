@@ -25,6 +25,14 @@ class VehicleRepository(Repository[Vehicle]):
         )
         return (await self.session.scalars(stmt)).all()
 
+    async def list_for_clients(self, client_ids: Sequence[int]) -> Sequence[Vehicle]:
+        stmt = (
+            select(Vehicle)
+            .where(Vehicle.client_id.in_(client_ids), _ACTIVE)
+            .order_by(Vehicle.client_id, Vehicle.plate, Vehicle.id)
+        )
+        return (await self.session.scalars(stmt)).all()
+
 
 class ReadingRepository(Repository[OdometerReading]):
     model = OdometerReading

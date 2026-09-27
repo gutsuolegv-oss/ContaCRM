@@ -93,7 +93,7 @@ export function GridPage() {
   );
 
   return (
-    <>
+    <div className="grid-page">
       <div className="page-head">
         <div>
           <h1>Grila lunii</h1>
@@ -136,7 +136,7 @@ export function GridPage() {
         </div>
       </div>
 
-      <div className="kpi-row">
+      <div className="kpi-row compact">
         <Kpi
           label="Celule în lună"
           value={cells.length}
@@ -168,7 +168,7 @@ export function GridPage() {
       )}
       {generated && <GenerationNotice result={generated} onClose={() => setGenerated(null)} />}
 
-      <div className="card">
+      <div className="card grid-card">
         <div className="toolbar">
           <div className="seg">
             {seg("all", "Toate", cells.length)}
@@ -236,32 +236,35 @@ export function GridPage() {
         ) : (
           <GridTable grid={grid.data} statusSets={statusSets.data} queryKey={key} />
         )}
+        {grid.data && grid.data.rows.length > 0 && (
+          <div className="grid-foot legend">
+            <span>
+              <i style={{ background: "var(--ok)" }} />
+              finalizat
+            </span>
+            <span>
+              <i style={{ background: "var(--info)" }} />
+              în lucru
+            </span>
+            <span>
+              <i style={{ background: "var(--warn)" }} />
+              neachitat
+            </span>
+            <span>
+              <i style={{ background: "var(--border-strong)" }} />
+              neînceput
+            </span>
+            <span>
+              <i style={{ background: "var(--bad)" }} />
+              termen depășit
+            </span>
+            <span className="grid-foot-note">
+              Termenul comun e în capul coloanei; în celulă apare doar cel diferit sau depășit.
+            </span>
+          </div>
+        )}
       </div>
-      {grid.data && grid.data.rows.length > 0 && (
-        <div className="legend" style={{ marginTop: 12 }}>
-          <span>
-            <i style={{ background: "var(--ok)" }} />
-            finalizat
-          </span>
-          <span>
-            <i style={{ background: "var(--info)" }} />
-            în lucru
-          </span>
-          <span>
-            <i style={{ background: "var(--warn)" }} />
-            neachitat
-          </span>
-          <span>
-            <i style={{ background: "var(--border-strong)" }} />
-            neînceput
-          </span>
-          <span>
-            <i style={{ background: "var(--bad)" }} />
-            termen depășit
-          </span>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
@@ -288,6 +291,25 @@ function GenerationNotice({ result, onClose }: { result: GenerationOut; onClose:
   );
 }
 
+/** „2026-10-26” → „26.10”. */
+function shortDate(iso: string): string {
+  return formatDate(iso).slice(0, 5);
+}
+
+/** Termenul cel mai des întâlnit pe fiecare coloană (tip de raport); `null` = fără termen. */
+function commonDeadlines(grid: GridOut): Map<number, string | null> {
+  const counts = new Map<number, Map<string | null, number>>();
+  for (const row of grid.rows)
+    for (const e of row.entries) {
+      const byDate = counts.get(e.report_type_id) ?? new Map<string | null, number>();
+      byDate.set(e.deadline, (byDate.get(e.deadline) ?? 0) + 1);
+      counts.set(e.report_type_id, byDate);
+    }
+  const result = new Map<number, string | null>();
+  for (const [rt, byDate] of counts) result.set(rt, [...byDate].sort((a, b) => b[1] - a[1])[0]![0]);
+  return result;
+}
+
 function GridTable({
   grid,
   statusSets,
@@ -298,17 +320,33 @@ function GridTable({
   queryKey: unknown[];
 }) {
   const closed = new Set(grid.periods.filter((p) => p.is_closed).map((p) => p.id));
+  const common = commonDeadlines(grid);
+  // coloana foilor de parcurs apare doar dacă cel puțin un client are automobile
+  const hasFleet = grid.rows.some((r) => r.fleet);
+  const monthEnd = `${new Date(grid.year, grid.month, 0).getDate()}.${String(grid.month).padStart(2, "0")}`;
   return (
     <div className="table-wrap">
       <table className="matrix">
         <thead>
           <tr>
             <th>Client</th>
-            {grid.report_types.map((rt) => (
-              <th key={rt.id} title={rt.name}>
-                {rt.code}
+            {grid.report_types.map((rt) => {
+              const deadline = common.get(rt.id);
+              return (
+                <th key={rt.id} title={rt.name}>
+                  <div className="col-code">{rt.code}</div>
+                  <div className="col-sub">
+                    {deadline ? `termen ${shortDate(deadline)}` : "fără termen"}
+                  </div>
+                </th>
+              );
+            })}
+            {hasFleet && (
+              <th className="fleet-col" title="Odometrul la sfârșitul lunii și foile de parcurs">
+                <div className="col-code">Foi de parcurs</div>
+                <div className="col-sub">date până {monthEnd}</div>
               </th>
-            ))}
+            )}
           </tr>
         </thead>
         <tbody>
@@ -326,17 +364,17 @@ function GridTable({
                       size={28}
                       square
                     />
-                    <span>
+                    <span className="row-text">
                       {row.client.name}
-                      <span
-                        className="cell-meta"
-                        style={{
-                          display: "block",
-                          marginTop: 0,
-                          color: rowLate ? "var(--bad)" : undefined,
-                        }}
-                      >
-                        {rowDone}/{row.entries.length} complete
+                      <span className="row-sub">
+                        <Accountants people={row.accountants} />
+                        <span
+                          className="row-count"
+                          title={`${rowDone} din ${row.entries.length} rapoarte complete`}
+                          style={rowLate ? { color: "var(--bad)" } : undefined}
+                        >
+                          {rowDone}/{row.entries.length}
+                        </span>
                       </span>
                     </span>
                   </Link>
@@ -347,6 +385,7 @@ function GridTable({
                     <Cell
                       key={rt.id}
                       entry={entry}
+                      commonDeadline={common.get(rt.id) ?? null}
                       statusSets={statusSets}
                       readOnly={closed.has(entry.period_id)}
                       queryKey={queryKey}
@@ -357,6 +396,17 @@ function GridTable({
                     </td>
                   );
                 })}
+                {hasFleet &&
+                  (row.fleet ? (
+                    <FleetCell
+                      clientId={row.client.id}
+                      fleet={row.fleet}
+                      year={grid.year}
+                      month={grid.month}
+                    />
+                  ) : (
+                    <td className="na">—</td>
+                  ))}
               </tr>
             );
           })}
@@ -366,13 +416,157 @@ function GridTable({
   );
 }
 
+type FleetSummary = NonNullable<GridOut["rows"][number]["fleet"]>;
+
+const FLEET_DOT: Record<FleetSummary["items"][number]["status"], string> = {
+  issued: "var(--ok)",
+  received: "var(--info)",
+  late: "var(--bad)",
+  waiting: "var(--border-strong)",
+};
+const FLEET_LABEL: Record<FleetSummary["items"][number]["status"], string> = {
+  issued: "foaie emisă",
+  received: "date primite, foaie de emis",
+  late: "fără date, luna s-a încheiat",
+  waiting: "așteptăm datele",
+};
+
+// ordinea segmentelor în bară: gata → de emis → lipsă
+const FLEET_ORDER: FleetSummary["items"][number]["status"][] = [
+  "issued",
+  "received",
+  "late",
+  "waiting",
+];
+const FLEET_SHORT: Record<FleetSummary["items"][number]["status"], string> = {
+  issued: "emise",
+  received: "de emis",
+  late: "lipsă",
+  waiting: "în așteptare",
+};
+
+/** Foile de parcurs ale clientului pe lună: starea pe scurt, automobilele și emiterea foilor. */
+function FleetCell({
+  clientId,
+  fleet,
+  year,
+  month,
+}: {
+  clientId: number;
+  fleet: FleetSummary;
+  year: number;
+  month: number;
+}) {
+  const queryClient = useQueryClient();
+  const issue = useMutation({
+    mutationFn: () => api.post(`/api/clients/${clientId}/fleet/${year}/${month}/waybills`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["grid", year, month] });
+      void queryClient.invalidateQueries({ queryKey: ["fleet", clientId] });
+      void queryClient.invalidateQueries({ queryKey: ["waybills", clientId] });
+    },
+  });
+  const [text, tone] =
+    fleet.issued === fleet.vehicles
+      ? [`${fleet.issued}/${fleet.vehicles} emise`, "ok"]
+      : fleet.late
+        ? [`${fleet.missing} fără date`, "bad"]
+        : fleet.received > 0
+          ? [`${fleet.received} de emis`, "info"]
+          : [`așteptăm ${fleet.missing}`, "grey"];
+  // până la 3 automobile se văd numerele; peste, o bară pe segmente și totalurile
+  const compact = fleet.items.length <= 3;
+  const counts = FLEET_ORDER.map((status) => ({
+    status,
+    n: fleet.items.filter((v) => v.status === status).length,
+  })).filter((c) => c.n > 0);
+  const details = fleet.items.map((v) => `${v.plate}: ${FLEET_LABEL[v.status]}`).join("\n");
+
+  return (
+    <td className={`fleet-cell${fleet.late ? " cell-overdue" : ""}`}>
+      <Link
+        className={`fleet-pill ${tone}`}
+        to={`/clienti/${clientId}?tab=parc&an=${year}&luna=${month}`}
+        title="Deschide parcul auto al clientului pe această lună"
+      >
+        <Icon name="truck" size={13} /> {text}
+      </Link>
+      {compact ? (
+        <div className="fleet-plates">
+          {fleet.items.map((v) => (
+            <span key={v.vehicle_id} title={`${v.plate}: ${FLEET_LABEL[v.status]}`}>
+              <i style={{ background: FLEET_DOT[v.status] }} />
+              {v.plate}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="fleet-summary" title={details}>
+          <div className="fleet-bar">
+            {counts.map((c) => (
+              <span key={c.status} style={{ flexGrow: c.n, background: FLEET_DOT[c.status] }} />
+            ))}
+          </div>
+          <div className="fleet-counts">
+            {counts.map((c) => (
+              <span key={c.status}>
+                <i style={{ background: FLEET_DOT[c.status] }} />
+                {c.n} {FLEET_SHORT[c.status]}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {fleet.received > 0 && (
+        <button
+          className="btn sm fleet-issue"
+          disabled={issue.isPending}
+          onClick={() => issue.mutate()}
+          title="Emite foile de parcurs pentru automobilele cu date primite"
+        >
+          Emite {fleet.received}
+        </button>
+      )}
+      {issue.error && (
+        <div className="cell-meta" style={{ color: "var(--bad)" }}>
+          {issue.error.message}
+        </div>
+      )}
+    </td>
+  );
+}
+
+/** Contabilii clientului, sub denumire: mini-avatar și nume; „+N” când sunt mai mulți. */
+function Accountants({ people = [] }: { people?: GridOut["rows"][number]["accountants"] }) {
+  if (people.length === 0)
+    return (
+      <span className="row-acc none">
+        <Icon name="user" size={12} /> fără contabil
+      </span>
+    );
+  const [first, ...rest] = people;
+  return (
+    <span className="row-acc" title={people.map((p) => p.full_name).join(", ")}>
+      <span className="avatar-stack">
+        {people.slice(0, 3).map((p) => (
+          <Avatar key={p.id} name={p.full_name} size={16} />
+        ))}
+      </span>
+      <span className="row-acc-name">{first!.full_name}</span>
+      {rest.length > 0 && <span className="row-acc-more">+{rest.length}</span>}
+    </span>
+  );
+}
+
 function Cell({
   entry,
+  commonDeadline,
   statusSets,
   readOnly,
   queryKey,
 }: {
   entry: EntryOut;
+  commonDeadline: string | null;
   statusSets: StatusSetOut[];
   readOnly: boolean;
   queryKey: unknown[];
@@ -427,9 +621,12 @@ function Cell({
           );
         })}
       </div>
-      <div className="cell-meta">
-        {entry.deadline ? `termen ${formatDate(entry.deadline)}` : "fără termen"}
-      </div>
+      {/* termenul comun e în capul coloanei; aici doar cel diferit sau depășit */}
+      {(entry.deadline !== commonDeadline || entry.is_overdue) && (
+        <div className="cell-meta">
+          {entry.deadline ? `termen ${formatDate(entry.deadline)}` : "fără termen"}
+        </div>
+      )}
       {setStatus.error && (
         <div className="cell-meta" style={{ color: "var(--bad)" }}>
           {setStatus.error.message}

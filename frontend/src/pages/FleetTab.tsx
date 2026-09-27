@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
 import type {
@@ -67,8 +68,18 @@ type Modal =
 
 export function FleetTab({ client }: { client: ClientOut }) {
   const queryClient = useQueryClient();
-  const months = recentMonths();
-  const [period, setPeriod] = useState<Period>(months[0]!);
+  // luna din adresă (?an=2026&luna=8, ex. din grila lunii), altfel luna curentă
+  const [params] = useSearchParams();
+  const fromUrl: Period | null =
+    Number(params.get("an")) && Number(params.get("luna"))
+      ? { year: Number(params.get("an")), month: Number(params.get("luna")) }
+      : null;
+  const recent = recentMonths();
+  const months =
+    fromUrl && !recent.some((m) => m.year === fromUrl.year && m.month === fromUrl.month)
+      ? [...recent, fromUrl]
+      : recent;
+  const [period, setPeriod] = useState<Period>(fromUrl ?? recent[0]!);
   const [modal, setModal] = useState<Modal | null>(null);
 
   const fleet = useQuery({

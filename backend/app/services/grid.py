@@ -20,7 +20,7 @@ from app.models import (
     User,
     UserRole,
 )
-from app.repositories.client import ClientRepository
+from app.repositories.client import AssignmentRepository, ClientRepository
 from app.repositories.execution import (
     EntryRepository,
     GenerationSourceRepository,
@@ -30,6 +30,7 @@ from app.repositories.holiday import HolidayRepository
 from app.repositories.user import UserRepository
 from app.schemas.classifier import ReportTypeBrief
 from app.schemas.grid import (
+    AccountantBrief,
     ClientBrief,
     EntryOut,
     EntryStepOut,
@@ -49,6 +50,7 @@ from app.services.errors import (
     ValidationFailedError,
     conflict_guard,
 )
+from app.services.fleet import month_summaries
 from app.services.periods import period_bounds, periods_ending_in
 
 # Termenul poate fi cu până la 24 de luni după sfârșitul perioadei (deadline_month_offset).
@@ -262,6 +264,13 @@ class GridService:
                 rows[entry.client_id] = row
             row.entries.append(entry_out(entry, today))
             columns[entry.report_type_id] = entry.report_type
+        if rows:
+            assignments = await AssignmentRepository(self.session).current_for_clients(list(rows))
+            for a in assignments:
+                rows[a.client_id].accountants.append(AccountantBrief.model_validate(a.user))
+            fleets = await month_summaries(self.session, list(rows), year, month, today)
+            for client_id, fleet in fleets.items():
+                rows[client_id].fleet = fleet
         ordered = sorted(columns.values(), key=lambda rt: (rt.sort_order, rt.code, rt.id))
         return GridOut(
             year=year,

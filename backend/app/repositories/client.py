@@ -172,6 +172,19 @@ class AssignmentRepository(Repository[ClientAssignment]):
         )
         return (await self.session.scalars(stmt)).all()
 
+    async def current_for_clients(self, client_ids: Sequence[int]) -> Sequence[ClientAssignment]:
+        """Repartizările deschise ale mai multor clienți, cu utilizatorul (o singură interogare)."""
+        stmt = (
+            select(ClientAssignment)
+            .where(
+                ClientAssignment.client_id.in_(client_ids),
+                ClientAssignment.unassigned_at.is_(None),
+            )
+            .options(selectinload(ClientAssignment.user))
+            .order_by(ClientAssignment.assigned_at, ClientAssignment.id)
+        )
+        return (await self.session.scalars(stmt)).all()
+
     async def current(self, client_id: int, user_id: int) -> ClientAssignment | None:
         stmt = select(ClientAssignment).where(
             ClientAssignment.client_id == client_id,

@@ -27,6 +27,8 @@ from app.schemas.fleet import (
     FleetMonthOut,
     FleetRowOut,
     FleetStatus,
+    FleetSummaryOut,
+    FleetVehicleBrief,
     ReadingIn,
     ReadingOut,
     VehicleCreate,
@@ -83,6 +85,41 @@ class _History:
     def start(self, period: tuple[int, int]) -> int:
         prev = self.before(period)
         return prev.end_odometer if prev else self.vehicle.initial_odometer
+
+
+def _status(reading: OdometerReading | None, deadline: date, today: date) -> FleetStatus:
+    """Starea unui automobil pe lună: așteptăm date / întârziat / date primite / foaie emisă."""
+    if reading is None:
+        return "late" if today > deadline else "waiting"
+    return "issued" if reading.waybill else "received"
+
+
+async def month_summaries(
+    session: AsyncSession, client_ids: Sequence[int], year: int, month: int, today: date
+) -> dict[int, FleetSummaryOut]:
+    """Rezumatul foilor de parcurs pe lună, pentru clienții care au automobile active. Nu
+    verifică accesul: apelantul trimite doar clienții pe care utilizatorul îi vede."""
+    vehicles = await VehicleRepository(session).list_for_clients(client_ids)
+    readings = await ReadingRepository(session).for_vehicles([v.id for v in vehicles])
+    by_period = {(r.vehicle_id, r.year, r.month): r for r in readings}
+    deadline = last_day(year, month)
+    items: dict[int, list[FleetVehicleBrief]] = defaultdict(list)
+    for v in vehicles:
+        status = _status(by_period.get((v.id, year, month)), deadline, today)
+        items[v.client_id].append(FleetVehicleBrief(vehicle_id=v.id, plate=v.plate, status=status))
+    result = {}
+    for client_id, briefs in items.items():
+        count = {s: sum(b.status == s for b in briefs) for s in ("issued", "received", "late")}
+        missing = len(briefs) - count["issued"] - count["received"]
+        result[client_id] = FleetSummaryOut(
+            vehicles=len(briefs),
+            issued=count["issued"],
+            received=count["received"],
+            missing=missing,
+            late=count["late"] > 0,
+            items=briefs,
+        )
+    return result
 
 
 class FleetService:
@@ -183,11 +220,7 @@ class FleetService:
             start = history.start(period)
             reading = history.at(period)
             km = reading.end_odometer - start if reading else None
-            status: FleetStatus
-            if reading is None:
-                status = "late" if today > deadline else "waiting"
-            else:
-                status = "issued" if reading.waybill else "received"
+            status = _status(reading, deadline, today)
             rows.append(
                 FleetRowOut(
                     vehicle=VehicleOut.model_validate(vehicle),

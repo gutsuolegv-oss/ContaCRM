@@ -1067,6 +1067,13 @@ export interface components {
             /** Expires In */
             expires_in: number;
         };
+        /** AccountantBrief */
+        AccountantBrief: {
+            /** Id */
+            id: number;
+            /** Full Name */
+            full_name: string;
+        };
         /** AssignmentCreate */
         AssignmentCreate: {
             /** User Id */
@@ -1604,6 +1611,36 @@ export interface components {
             status: "waiting" | "late" | "received" | "issued";
         };
         /**
+         * FleetSummaryOut
+         * @description Foile de parcurs ale unui client pe o lună, pe scurt (pentru grila lunii).
+         */
+        FleetSummaryOut: {
+            /** Vehicles */
+            vehicles: number;
+            /** Issued */
+            issued: number;
+            /** Received */
+            received: number;
+            /** Missing */
+            missing: number;
+            /** Late */
+            late: boolean;
+            /** Items */
+            items: components["schemas"]["FleetVehicleBrief"][];
+        };
+        /** FleetVehicleBrief */
+        FleetVehicleBrief: {
+            /** Vehicle Id */
+            vehicle_id: number;
+            /** Plate */
+            plate: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "late" | "received" | "issued";
+        };
+        /**
          * FuelType
          * @enum {string}
          */
@@ -1635,6 +1672,9 @@ export interface components {
         /** GridRowOut */
         GridRowOut: {
             client: components["schemas"]["ClientBrief"];
+            /** Accountants */
+            accountants?: components["schemas"]["AccountantBrief"][];
+            fleet?: components["schemas"]["FleetSummaryOut"] | null;
             /** Entries */
             entries: components["schemas"]["EntryOut"][];
         };
