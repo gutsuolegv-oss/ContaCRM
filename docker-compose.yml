@@ -1,7 +1,12 @@
 # ContaCRM — topologia serviciilor și a rețelelor.
 # Vezi docs/architecture.md și docs/security.md.
 #
-# Directoarele backend/, frontend/, gateway/ se creează în etapa de implementare.
+# Faza 1 pornește doar postgres, redis și backend: `docker compose up -d`.
+# Serviciile încă neimplementate sunt în profiluri și nu pornesc implicit:
+#   web (nginx)                     → --profile web
+#   worker, beat (Celery)           → --profile worker
+#   notify-gateway, egress-proxy    → --profile gateway
+# Pentru dezvoltare și teste: docker-compose.dev.yml (vezi comentariul din fișier).
 #
 # Rețele:
 #   crm_internal  — internă, fără internet: web, backend, worker, beat, postgres, redis
@@ -23,6 +28,7 @@ x-app-env: &app-env
 services:
   web:
     build: ./frontend
+    profiles: [web]
     ports:
       - "${OFFICE_BIND_IP:-127.0.0.1}:443:443"
     volumes:
@@ -35,15 +41,21 @@ services:
     build: ./backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment: *app-env
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [crm_internal]
     restart: unless-stopped
 
   worker:
     build: ./backend
     command: celery -A app.worker worker --loglevel=info
+    profiles: [worker]
     environment: *app-env
-    depends_on: [postgres, redis, notify-gateway]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      notify-gateway: { condition: service_started, required: false }
     # Singurul serviciu CRM care vede gateway-ul. Nu ascultă pe niciun port,
     # deci gateway-ul nu poate iniția conexiuni spre CRM.
     networks: [crm_internal, gw_link]
@@ -52,8 +64,10 @@ services:
   beat:
     build: ./backend
     command: celery -A app.worker beat --loglevel=info
+    profiles: [worker]
     environment: *app-env
-    depends_on: [redis]
+    depends_on:
+      redis: { condition: service_healthy }
     networks: [crm_internal]
     restart: unless-stopped
 
@@ -65,6 +79,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks: [crm_internal]
     restart: unless-stopped
 
@@ -73,11 +92,17 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks: [crm_internal]
     restart: unless-stopped
 
   notify-gateway:
     build: ./gateway
+    profiles: [gateway]
     environment:
       GATEWAY_API_KEY: ${GATEWAY_API_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
@@ -103,6 +128,7 @@ services:
 
   egress-proxy:
     image: ubuntu/squid:latest
+    profiles: [gateway]
     volumes:
       - ./infra/egress-proxy/squid.conf:/etc/squid/squid.conf:ro
     networks:

@@ -1,0 +1,51 @@
+# Suprascrieri pentru dezvoltare și teste. NU se folosește în producție.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend pytest
+#
+# Diferențe față de producție:
+#   - imaginea backend include dependențele de test (pytest, ruff, mypy);
+#   - codul din ./backend e montat în container și uvicorn repornește la modificări;
+#   - API-ul e publicat DOAR pe 127.0.0.1:8000 al VM-ului (acces din afară prin tunel SSH:
+#     ssh -L 8000:127.0.0.1:8000 wcontacrm@<ip-vm>, apoi http://localhost:8000/docs).
+#     Pentru asta backend-ul intră și într-o rețea ne-internă (dev_access).
+#   - frontend: serverul de dezvoltare Vite pe ${FRONTEND_DEV_BIND_IP:-127.0.0.1}:5173, care
+#     trimite /api la backend (backend-ul rămâne doar pe 127.0.0.1).
+#     Implicit, din afară: ssh -L 5173:127.0.0.1:5173 wcontacrm@<ip-vm> → http://localhost:5173.
+#     Acces direct din rețeaua biroului (HTTP simplu, NECRIPTAT — doar cu date demo): în .env
+#     FRONTEND_DEV_BIND_IP=<ip-vm> și SESSION_COOKIE_SECURE=false, apoi http://<ip-vm>:5173.
+#     Are nevoie de internet doar pentru npm install (rețeaua dev_access).
+
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      ENVIRONMENT: dev
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks: [crm_internal, dev_access]
+
+  frontend:
+    image: node:22-alpine
+    user: node
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app   # node_modules rămâne în ./frontend (în .gitignore)
+    ports:
+      - "${FRONTEND_DEV_BIND_IP:-127.0.0.1}:5173:5173"
+    depends_on: [backend]
+    networks: [crm_internal, dev_access]
+
+networks:
+  dev_access:
+    ipam: { config: [{ subnet: 172.29.0.0/24 }] }
