@@ -10,12 +10,14 @@ import type {
   FleetMonthOut,
   FleetRowOut,
   ReadingIn,
+  TelegramStatusOut,
   VehicleCreate,
   VehicleOut,
   WaybillOut,
 } from "../api/types";
 import { ErrorBox } from "../components/ErrorBox";
 import { Icon } from "../components/Icon";
+import { CopyButton } from "../components/ui";
 import { formatDate, formatMonth } from "../format";
 
 const FUEL: Record<VehicleCreate["fuel_type"], string> = {
@@ -316,30 +318,150 @@ export function FleetTab({ client }: { client: ClientOut }) {
         </div>
       </div>
 
-      <div className="card" style={{ boxShadow: "none" }}>
-        <div className="card-h">
-          <h3>Foi de parcurs emise</h3>
-        </div>
-        {waybills.data?.length ? (
-          waybills.data.map((w) => (
-            <div key={w.id} className="list-item">
-              <Icon name="reports" />
-              <div className="grow">
-                <div className="t mono">{w.number}</div>
-                <div className="s">
-                  {w.plate} · {formatMonth(w.year, w.month)} · {km(w.km)} · {liters(w.fuel_liters)}
+      <div className="grid g2" style={{ alignItems: "start" }}>
+        <div className="card" style={{ boxShadow: "none" }}>
+          <div className="card-h">
+            <h3>Foi de parcurs emise</h3>
+          </div>
+          {waybills.data?.length ? (
+            waybills.data.map((w) => (
+              <div key={w.id} className="list-item">
+                <Icon name="reports" />
+                <div className="grow">
+                  <div className="t mono">{w.number}</div>
+                  <div className="s">
+                    {w.plate} · {formatMonth(w.year, w.month)} · {km(w.km)} ·{" "}
+                    {liters(w.fuel_liters)}
+                  </div>
                 </div>
+                <button className="btn sm" onClick={() => setModal({ kind: "waybill", id: w.id })}>
+                  Deschide
+                </button>
               </div>
-              <button className="btn sm" onClick={() => setModal({ kind: "waybill", id: w.id })}>
-                Deschide
-              </button>
-            </div>
-          ))
-        ) : (
-          <div className="card-b muted">Nicio foaie emisă încă.</div>
-        )}
+            ))
+          ) : (
+            <div className="card-b muted">Nicio foaie emisă încă.</div>
+          )}
+        </div>
+        <TelegramCard clientId={client.id} />
       </div>
       {modals}
+    </div>
+  );
+}
+
+// --- Telegram ---
+
+/** Linkul personal al clientului pentru bot și chat-urile legate de el. */
+function TelegramCard({ clientId }: { clientId: number }) {
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ["telegram", clientId],
+    queryFn: () => api.get<TelegramStatusOut>(`/api/clients/${clientId}/telegram`),
+  });
+  const done = (data: TelegramStatusOut) => queryClient.setQueryData(["telegram", clientId], data);
+  const regenerate = useMutation({
+    mutationFn: () => api.post<TelegramStatusOut>(`/api/clients/${clientId}/telegram/link`),
+    onSuccess: done,
+  });
+  const unlink = useMutation({
+    mutationFn: (id: number) => api.del<TelegramStatusOut>(`/api/telegram-chats/${id}`),
+    onSuccess: done,
+  });
+  const error = status.error ?? regenerate.error ?? unlink.error;
+  const data = status.data;
+
+  return (
+    <div className="card" style={{ boxShadow: "none" }}>
+      <div className="card-h">
+        <h3>Telegram</h3>
+      </div>
+      <div className="card-b stack">
+        {error && <div className="error">{error.message}</div>}
+        {!data ? (
+          <div className="loading">Se încarcă…</div>
+        ) : !data.bot_configured ? (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Botul Telegram nu e conectat încă. Adminul îl configurează în Setări → Telegram.
+          </div>
+        ) : (
+          <>
+            <div className="muted" style={{ fontSize: 13 }}>
+              Trimite-i clientului linkul personal. După ce îl deschide, apasă „Transmite parcurs”
+              în bot, iar kilometrajul apare aici, cu sursa Telegram.
+            </div>
+            {data.link ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  className="input mono"
+                  style={{ flex: 1, minWidth: 0, fontSize: 12 }}
+                  value={data.link}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                />
+                <CopyButton value={data.link} label="Copiază linkul" />
+                <button
+                  className="btn sm ghost"
+                  disabled={regenerate.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Generezi un link nou? Cel vechi nu va mai lega chat-uri noi; cele deja legate rămân.",
+                      )
+                    )
+                      regenerate.mutate();
+                  }}
+                >
+                  Link nou
+                </button>
+              </div>
+            ) : (
+              <div>
+                <button
+                  className="btn sm primary"
+                  disabled={regenerate.isPending}
+                  onClick={() => regenerate.mutate()}
+                >
+                  Generează linkul
+                </button>
+              </div>
+            )}
+          </>
+        )}
+        {data && data.chats.length > 0 && (
+          <div>
+            <div className="strong" style={{ fontSize: 13, marginBottom: 4 }}>
+              Chat-uri legate
+            </div>
+            {data.chats.map((c) => (
+              <div key={c.id} className="list-item" style={{ padding: "6px 0" }}>
+                <Icon name="user" />
+                <div className="grow">
+                  <div className="t">{c.tg_name ?? "Fără nume"}</div>
+                  <div className="s">
+                    {c.tg_username ? `@${c.tg_username} · ` : ""}legat din{" "}
+                    {formatDate(c.created_at)}
+                  </div>
+                </div>
+                <button
+                  className="btn sm ghost"
+                  disabled={unlink.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Deconectezi ${c.tg_name ?? "chat-ul"}? Nu va mai putea trimite date.`,
+                      )
+                    )
+                      unlink.mutate(c.id);
+                  }}
+                >
+                  Deconectează
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

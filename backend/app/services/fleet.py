@@ -38,7 +38,13 @@ from app.schemas.fleet import (
 from app.services.access import get_visible_client
 from app.services.audit import AuditService, snapshot
 from app.services.classifier import apply_changes
-from app.services.errors import ConflictError, NotFoundError, ValidationFailedError, conflict_guard
+from app.services.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationFailedError,
+    conflict_guard,
+)
 
 _PLATE_CONFLICT = "Există deja un automobil în evidență cu acest număr"
 _CENT = Decimal("0.01")
@@ -80,7 +86,9 @@ class _History:
 
 
 class FleetService:
-    def __init__(self, session: AsyncSession, actor: User) -> None:
+    def __init__(self, session: AsyncSession, actor: User | None) -> None:
+        """`actor` None: botul Telegram, care lucrează doar prin `record_reading`, pe un
+        automobil pe care l-a verificat el (al clientului legat de chat)."""
         self.session = session
         self.actor = actor
         self.audit = AuditService(session, actor)
@@ -90,8 +98,18 @@ class FleetService:
 
     # --- acces ---
 
+    @property
+    def _user(self) -> User:
+        if self.actor is None:
+            raise ForbiddenError("Acțiune permisă doar unui utilizator")
+        return self.actor
+
+    @property
+    def _actor_id(self) -> int | None:
+        return self.actor.id if self.actor is not None else None
+
     async def _client(self, client_id: int) -> Client:
-        return await get_visible_client(self.session, self.actor, client_id)
+        return await get_visible_client(self.session, self._user, client_id)
 
     async def _vehicle(self, vehicle_id: int) -> Vehicle:
         vehicle = await self.vehicles.get_active(vehicle_id)
@@ -145,7 +163,7 @@ class FleetService:
         async with conflict_guard(self.session, "Automobilul nu a putut fi scos din evidență"):
             vehicle.status = RecordStatus.ARCHIVED
             vehicle.deleted_at = now
-            vehicle.deleted_by = self.actor.id
+            vehicle.deleted_by = self._actor_id
         self.audit.changed(vehicle, before)
         await self.session.commit()
 
@@ -212,10 +230,16 @@ class FleetService:
         self, vehicle_id: int, year: int, month: int, data: ReadingIn, today: date
     ) -> OdometerReading:
         """Adaugă sau înlocuiește odometrul de sfârșit al lunii."""
+        vehicle = await self._vehicle(vehicle_id)
+        return await self.record_reading(vehicle, year, month, data, today)
+
+    async def record_reading(
+        self, vehicle: Vehicle, year: int, month: int, data: ReadingIn, today: date
+    ) -> OdometerReading:
+        """Regulile și salvarea citirii, fără verificarea accesului (o face apelantul)."""
         self._check_not_future(year, month, today)
         if data.received_on > today:
             raise ValidationFailedError("Data primirii nu poate fi în viitor")
-        vehicle = await self._vehicle(vehicle_id)
         history = await self._history(vehicle)
         period = (year, month)
         self._check_unlocked(history, period)
@@ -240,7 +264,7 @@ class FleetService:
                     vehicle_id=vehicle.id,
                     year=year,
                     month=month,
-                    entered_by=self.actor.id,
+                    entered_by=self._actor_id,
                     **data.model_dump(),
                 )
                 self.session.add(reading)
@@ -248,7 +272,7 @@ class FleetService:
         else:
             before = snapshot(reading)
             async with conflict_guard(self.session, "Citirea nu a putut fi salvată"):
-                apply_changes(reading, data.model_dump() | {"entered_by": self.actor.id})
+                apply_changes(reading, data.model_dump() | {"entered_by": self._actor_id})
             self.audit.changed(reading, before)
         await self.session.commit()
         return reading
@@ -291,7 +315,7 @@ class FleetService:
                 start_odometer=start,
                 end_odometer=reading.end_odometer,
                 fuel_liters=fuel_liters(reading.end_odometer - start, vehicle.fuel_norm),
-                issued_by=self.actor.id,
+                issued_by=self._actor_id,
             )
             self.session.add(waybill)
         self.audit.created(waybill)

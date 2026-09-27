@@ -23,11 +23,13 @@ from app.models.fleet import FuelType, OdometerReading, ReadingSource, Vehicle, 
 from app.models.holiday import Holiday
 from app.models.matrix import ClientReportType, ObligationSource
 from app.models.organization import Organization
+from app.models.telegram import BotStatus, TelegramBot, TelegramChat, TelegramLinkCode
 from app.models.user import RefreshToken, User, UserRole
 
 __all__ = [
     "AuditAction",
     "AuditLog",
+    "BotStatus",
     "Client",
     "ClientAssignment",
     "ClientBankAccount",
@@ -55,6 +57,9 @@ __all__ = [
     "RuleAction",
     "Status",
     "StatusSet",
+    "TelegramBot",
+    "TelegramChat",
+    "TelegramLinkCode",
     "User",
     "UserRole",
     "Vehicle",

@@ -580,7 +580,8 @@ export interface paths {
         put?: never;
         /**
          * Create Client
-         * @description Clientul pornește în `onboarding`; obligațiile se calculează automat de azi.
+         * @description Doar admin și director. Clientul pornește în `onboarding`, fără contabil; obligațiile
+         *     se calculează automat de azi.
          */
         post: operations["create_client_api_clients_post"];
         delete?: never;
@@ -965,6 +966,88 @@ export interface paths {
         patch: operations["update_organization_api_settings_organization_patch"];
         trace?: never;
     };
+    "/api/settings/telegram-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Telegram Bot
+         * @description Starea botului (admin și director). Tokenul nu se întoarce niciodată.
+         */
+        get: operations["get_telegram_bot_api_settings_telegram_bot_get"];
+        /**
+         * Set Telegram Bot
+         * @description Doar admin. Token nou: procesul botului îl verifică în câteva secunde; null: botul se
+         *     oprește.
+         */
+        put: operations["set_telegram_bot_api_settings_telegram_bot_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Telegram Status */
+        get: operations["telegram_status_api_clients__client_id__telegram_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Link
+         * @description Link nou pentru client; cel vechi nu mai leagă chat-uri noi (cele legate rămân).
+         */
+        post: operations["regenerate_link_api_clients__client_id__telegram_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telegram-chats/{chat_row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink Chat
+         * @description Chat-ul nu mai poate trimite date pentru client; rămâne în istoric.
+         */
+        delete: operations["unlink_chat_api_telegram_chats__chat_row_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1046,6 +1129,35 @@ export interface components {
             currency?: string | null;
             /** Is Primary */
             is_primary?: boolean | null;
+        };
+        /** BotSettingsOut */
+        BotSettingsOut: {
+            /** Configured */
+            configured: boolean;
+            /** Token Hint */
+            token_hint: string | null;
+            /** Username */
+            username: string | null;
+            status: components["schemas"]["BotStatus"];
+            /** Status Message */
+            status_message: string | null;
+            /** Checked At */
+            checked_at: string | null;
+            /** Running */
+            running: boolean;
+        };
+        /**
+         * BotStatus
+         * @enum {string}
+         */
+        BotStatus: "not_configured" | "pending" | "connected" | "error";
+        /**
+         * BotTokenIn
+         * @description `token` null: botul se oprește (tokenul se șterge).
+         */
+        BotTokenIn: {
+            /** Token */
+            token: string | null;
         };
         /** CategoryCreate */
         CategoryCreate: {
@@ -2158,6 +2270,29 @@ export interface components {
             is_required?: boolean | null;
             /** Sort Order */
             sort_order?: number | null;
+        };
+        /** TelegramChatOut */
+        TelegramChatOut: {
+            /** Id */
+            id: number;
+            /** Tg Name */
+            tg_name: string | null;
+            /** Tg Username */
+            tg_username: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** TelegramStatusOut */
+        TelegramStatusOut: {
+            /** Bot Configured */
+            bot_configured: boolean;
+            /** Link */
+            link: string | null;
+            /** Chats */
+            chats: components["schemas"]["TelegramChatOut"][];
         };
         /** UserBrief */
         UserBrief: {
@@ -4732,6 +4867,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_telegram_bot_api_settings_telegram_bot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotSettingsOut"];
+                };
+            };
+        };
+    };
+    set_telegram_bot_api_settings_telegram_bot_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BotTokenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telegram_status_api_clients__client_id__telegram_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_link_api_clients__client_id__telegram_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_chat_api_telegram_chats__chat_row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatusOut"];
                 };
             };
             /** @description Validation Error */

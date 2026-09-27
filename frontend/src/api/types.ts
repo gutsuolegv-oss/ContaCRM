@@ -37,3 +37,5 @@ export type ReadingOut = S["ReadingOut"];
 export type WaybillOut = S["WaybillOut"];
 export type OrganizationOut = S["OrganizationOut"];
 export type OrganizationUpdate = S["OrganizationUpdate"];
+export type TelegramStatusOut = S["TelegramStatusOut"];
+export type BotSettingsOut = S["BotSettingsOut"];
