@@ -8,6 +8,8 @@ dependencies = [
     "uvicorn[standard]>=0.30,<1.0",
     "pydantic>=2.8,<3.0",
     "pydantic-settings>=2.4,<3.0",
+    "sqlalchemy[asyncio]>=2.0.30,<2.1",
+    "asyncpg>=0.29,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +41,9 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "RUF"]
 ignore = ["S101"]  # assert în teste
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E402"]  # ENVIRONMENT se setează înaintea importurilor din app
 
 [tool.mypy]
 python_version = "3.11"
