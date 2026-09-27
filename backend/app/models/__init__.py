@@ -22,6 +22,7 @@ from app.models.execution import PeriodType, ReportEntry, ReportEntryStep, Repor
 from app.models.fleet import FuelType, OdometerReading, ReadingSource, Vehicle, Waybill
 from app.models.holiday import Holiday
 from app.models.matrix import ClientReportType, ObligationSource
+from app.models.onec import ClientBalance, OneCIntegration, OneCSyncRun
 from app.models.organization import Organization
 from app.models.telegram import (
     BotStatus,
@@ -40,6 +41,7 @@ __all__ = [
     "BotStatus",
     "Client",
     "ClientAssignment",
+    "ClientBalance",
     "ClientBankAccount",
     "ClientContact",
     "ClientReportType",
@@ -51,6 +53,8 @@ __all__ = [
     "LegalForm",
     "ObligationSource",
     "OdometerReading",
+    "OneCIntegration",
+    "OneCSyncRun",
     "Organization",
     "PeriodType",
     "Periodicity",

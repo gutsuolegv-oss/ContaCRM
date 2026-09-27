@@ -1110,6 +1110,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/onec/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive Balances */
+        post: operations["receive_balances_api_onec_balances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Onec Status */
+        get: operations["onec_status_api_onec_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Key
+         * @description Doar admin. Cheia nouă se arată o singură dată; cea veche nu mai e acceptată.
+         */
+        post: operations["regenerate_key_api_onec_api_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/debts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Debts
+         * @description Clienții cu datorii la ultima sincronizare și contragenții din 1C negăsiți în CRM.
+         */
+        get: operations["debts_api_onec_debts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/clients/{client_id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Client Balance */
+        get: operations["client_balance_api_onec_clients__client_id__balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onec/script": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Script
+         * @description Scriptul PowerShell pentru calculatorul cu 1C.
+         */
+        get: operations["download_script_api_onec_script_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1136,6 +1247,12 @@ export interface components {
             /** Full Name */
             full_name: string;
         };
+        /** ApiKeyOut */
+        ApiKeyOut: {
+            /** Key */
+            key: string;
+            status: components["schemas"]["OneCStatusOut"];
+        };
         /** AssignmentCreate */
         AssignmentCreate: {
             /** User Id */
@@ -1157,6 +1274,34 @@ export interface components {
             unassigned_at: string | null;
             /** Unassigned By */
             unassigned_by: number | null;
+        };
+        /** BalanceRowIn */
+        BalanceRowIn: {
+            /** Idno */
+            idno: string;
+            /** Name */
+            name: string;
+            /** Debit */
+            debit: number | string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: number | string;
+        };
+        /** BalancesIn */
+        BalancesIn: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Base */
+            base?: string | null;
+            /** Script Version */
+            script_version?: string | null;
+            /** Rows */
+            rows: components["schemas"]["BalanceRowIn"][];
         };
         /** BankAccountCreate */
         BankAccountCreate: {
@@ -1288,6 +1433,23 @@ export interface components {
             sort_order?: number | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** ClientBalanceOut */
+        ClientBalanceOut: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Debit */
+            debit: number;
+            /** Credit */
+            credit: number;
         };
         /** ClientBrief */
         ClientBrief: {
@@ -1593,6 +1755,29 @@ export interface components {
          * @enum {string}
          */
         DeadlineRule: "day_of_next_period" | "fixed_date" | "manual";
+        /** DebtRowOut */
+        DebtRowOut: {
+            /** Client Id */
+            client_id: number;
+            /** Name */
+            name: string;
+            /** Idno */
+            idno: string;
+            /** Debit */
+            debit: number;
+            /** Credit */
+            credit: number;
+            /** Accountants */
+            accountants: string[];
+        };
+        /** DebtsOut */
+        DebtsOut: {
+            run: components["schemas"]["RunOut"] | null;
+            /** Clients */
+            clients: components["schemas"]["DebtRowOut"][];
+            /** Unmatched */
+            unmatched: components["schemas"]["UnmatchedOut"][];
+        };
         /** EntryOut */
         EntryOut: {
             /** Id */
@@ -1798,6 +1983,14 @@ export interface components {
          * @enum {string}
          */
         ObligationSource: "auto" | "manual";
+        /** OneCStatusOut */
+        OneCStatusOut: {
+            /** Key Configured */
+            key_configured: boolean;
+            /** Key Hint */
+            key_hint: string | null;
+            last_run: components["schemas"]["RunOut"] | null;
+        };
         /**
          * Op
          * @enum {string}
@@ -2326,6 +2519,29 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** RunOut */
+        RunOut: {
+            /** Id */
+            id: number;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Base Name */
+            base_name: string | null;
+            /** Rows */
+            rows: number;
+            /** Matched */
+            matched: number;
+            /** Total Debit */
+            total_debit: number;
+        };
         /** StatusBrief */
         StatusBrief: {
             /** Id */
@@ -2470,6 +2686,19 @@ export interface components {
             /** Sort Order */
             sort_order?: number | null;
         };
+        /** SyncResultOut */
+        SyncResultOut: {
+            /** Run Id */
+            run_id: number;
+            /** Rows */
+            rows: number;
+            /** Matched */
+            matched: number;
+            /** Unmatched */
+            unmatched: number;
+            /** Total Debit */
+            total_debit: number;
+        };
         /** TelegramChatOut */
         TelegramChatOut: {
             /** Id */
@@ -2492,6 +2721,17 @@ export interface components {
             link: string | null;
             /** Chats */
             chats: components["schemas"]["TelegramChatOut"][];
+        };
+        /** UnmatchedOut */
+        UnmatchedOut: {
+            /** Idno */
+            idno: string;
+            /** Name */
+            name: string;
+            /** Debit */
+            debit: number;
+            /** Credit */
+            credit: number;
         };
         /** UserBrief */
         UserBrief: {
@@ -5319,6 +5559,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_balances_api_onec_balances_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BalancesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    onec_status_api_onec_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OneCStatusOut"];
+                };
+            };
+        };
+    };
+    regenerate_key_api_onec_api_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyOut"];
+                };
+            };
+        };
+    };
+    debts_api_onec_debts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebtsOut"];
+                };
+            };
+        };
+    };
+    client_balance_api_onec_clients__client_id__balance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientBalanceOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_script_api_onec_script_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

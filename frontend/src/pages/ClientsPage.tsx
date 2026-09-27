@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { api } from "../api/client";
-import type { ClientListItem, ClientListOut } from "../api/types";
+import type { ClientListItem, ClientListOut, DebtsOut } from "../api/types";
 import { isEditor, useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
 import { Icon } from "../components/Icon";
@@ -11,6 +11,11 @@ import { Avatar, CopyButton, Empty } from "../components/ui";
 import { initials } from "../format";
 
 const PAGE = 50;
+const MDL = new Intl.NumberFormat("ro-MD", {
+  style: "currency",
+  currency: "MDL",
+  currencyDisplay: "code",
+});
 type VatFilter = "all" | "vat" | "novat";
 
 export function ClientsPage() {
@@ -53,6 +58,16 @@ export function ClientsPage() {
       {label}
     </button>
   );
+
+  // restanțele din 1C: doar pentru admin și director (API-ul le refuză contabilului)
+  const debts = useQuery({
+    queryKey: ["onec-debts"],
+    queryFn: () => api.get<DebtsOut>("/api/onec/debts"),
+    enabled: isEditor(me),
+  });
+  const debtOf = debts.data?.run
+    ? new Map(debts.data.clients.map((d) => [d.client_id, d.debit]))
+    : null;
 
   const total = query.data?.total ?? 0;
   const filtered = q !== "" || vat !== "all";
@@ -141,6 +156,7 @@ export function ClientsPage() {
                   <th>IDNO</th>
                   <th>Regim</th>
                   <th>Contabil</th>
+                  {debtOf && <th className="num">Restanță 1C</th>}
                   <th>Status</th>
                   <th />
                 </tr>
@@ -177,6 +193,17 @@ export function ClientsPage() {
                     <td>
                       <Accountants c={c} />
                     </td>
+                    {debtOf && (
+                      <td className="num mono">
+                        {debtOf.has(c.id) ? (
+                          <span className="strong" style={{ color: "var(--bad)" }}>
+                            {MDL.format(debtOf.get(c.id)!)}
+                          </span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    )}
                     <td>
                       <ClientStatusBadge status={c.client_status} />
                     </td>

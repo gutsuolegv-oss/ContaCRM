@@ -6,9 +6,17 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { api } from "../api/client";
-import type { BotSettingsOut, OrganizationOut, OrganizationUpdate } from "../api/types";
+import type {
+  ApiKeyOut,
+  BotSettingsOut,
+  OneCStatusOut,
+  OrganizationOut,
+  OrganizationUpdate,
+} from "../api/types";
 import { useMe } from "../auth/useAuth";
 import { ErrorBox } from "../components/ErrorBox";
+import { CopyButton } from "../components/ui";
+import { formatDate } from "../format";
 import { Icon, type IconName } from "../components/Icon";
 
 type Field = Exclude<keyof OrganizationOut, "id">;
@@ -53,7 +61,7 @@ function toForm(org: OrganizationOut): Form {
   return Object.fromEntries(fields.map((k) => [k, org[k] ?? ""])) as Form;
 }
 
-type SettingsTab = "company" | "telegram";
+type SettingsTab = "company" | "telegram" | "onec";
 
 export function SettingsPage() {
   const me = useMe();
@@ -61,12 +69,13 @@ export function SettingsPage() {
   // tabul e în adresă (/setari?tab=telegram): rămâne la reîncărcare și se poate trimite ca link
   const [params, setParams] = useSearchParams();
   const fromUrl = params.get("tab");
-  const tab: SettingsTab = fromUrl === "telegram" ? "telegram" : "company";
+  const tab: SettingsTab =
+    fromUrl === "telegram" ? "telegram" : fromUrl === "1c" ? "onec" : "company";
   const tabButton = (value: SettingsTab, label: string, icon: IconName) => (
     <button
       className={tab === value ? "on" : ""}
       onClick={() =>
-        setParams(value === "company" ? {} : { tab: value }, {
+        setParams(value === "company" ? {} : { tab: value === "onec" ? "1c" : value }, {
           replace: true,
         })
       }
@@ -92,9 +101,11 @@ export function SettingsPage() {
         <div className="tabs">
           {tabButton("company", "Date companie", "clients")}
           {tabButton("telegram", "Telegram", "send")}
+          {tabButton("onec", "1C", "database")}
         </div>
         {tab === "company" && <CompanyTab />}
         {tab === "telegram" && <TelegramBotSection canEdit={canEdit} />}
+        {tab === "onec" && <OneCTab canEdit={canEdit} />}
       </div>
     </>
   );
@@ -469,5 +480,186 @@ function ReminderSettings({ data, canEdit }: { data: BotSettingsOut; canEdit: bo
         </div>
       )}
     </form>
+  );
+}
+
+const MDL = new Intl.NumberFormat("ro-MD", {
+  style: "currency",
+  currency: "MDL",
+  currencyDisplay: "code",
+});
+
+/** Integrarea cu 1C: ultima sincronizare, cheia scriptului și pașii de instalare. */
+function OneCTab({ canEdit }: { canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const status = useQuery({
+    queryKey: ["onec-status"],
+    queryFn: () => api.get<OneCStatusOut>("/api/onec/status"),
+  });
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const regenerate = useMutation({
+    mutationFn: () => api.post<ApiKeyOut>("/api/onec/api-key"),
+    onSuccess: (result) => {
+      setNewKey(result.key);
+      queryClient.setQueryData(["onec-status"], result.status);
+    },
+  });
+  const download = useMutation({
+    mutationFn: () => api.download("/api/onec/script", "export-balances.ps1"),
+  });
+  const data = status.data;
+  const run = data?.last_run;
+
+  return (
+    <div className="card-b" style={{ padding: 24 }}>
+      {status.error && <div className="error">{status.error.message}</div>}
+      <div className="form-section">
+        <div>
+          <h3>Sincronizare</h3>
+          <p>Soldurile clienților față de birou, trimise zilnic de scriptul din 1C.</p>
+        </div>
+        <div className="stack" style={{ fontSize: 13 }}>
+          {!data ? (
+            <div className="loading">Se încarcă…</div>
+          ) : run ? (
+            <>
+              <div>
+                <span className="badge b-ok">Ultima sincronizare</span>{" "}
+                {new Date(run.received_at).toLocaleString("ro-MD")} · soldurile la{" "}
+                {formatDate(run.as_of)}
+                {run.base_name && <span className="muted"> · baza {run.base_name}</span>}
+              </div>
+              <div className="muted">
+                {run.rows} contragenți primiți, {run.matched} potriviți cu clienții din CRM ·
+                datorii în total {MDL.format(run.total_debit)}. Detalii pe pagina Restanțe 1C.
+              </div>
+            </>
+          ) : (
+            <div className="muted">Nicio sincronizare încă.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div>
+          <h3>Cheia scriptului</h3>
+          <p>Scriptul o trimite la fiecare sincronizare. Se afișează o singură dată.</p>
+        </div>
+        <div className="stack">
+          {regenerate.error && <div className="error">{regenerate.error.message}</div>}
+          {newKey ? (
+            <div className="callout warn">
+              <Icon name="key" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, marginBottom: 6 }}>
+                  Copiaz-o acum în <code>config.json</code> (câmpul <code>api_key</code>): după ce
+                  părăsești pagina nu se mai poate vedea.
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    className="input mono"
+                    style={{ flex: 1, minWidth: 0, fontSize: 12 }}
+                    value={newKey}
+                    readOnly
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <CopyButton value={newKey} label="Copiază cheia" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            data && (
+              <div style={{ fontSize: 13 }}>
+                {data.key_configured ? (
+                  <>
+                    <span className="badge b-ok">Cheie activă</span>{" "}
+                    <span className="muted mono">{data.key_hint}</span>
+                  </>
+                ) : (
+                  <span className="badge b-grey">Nicio cheie</span>
+                )}
+              </div>
+            )
+          )}
+          {canEdit ? (
+            <div>
+              <button
+                className="btn sm"
+                disabled={regenerate.isPending}
+                onClick={() => {
+                  if (
+                    !data?.key_configured ||
+                    window.confirm(
+                      "Generezi o cheie nouă? Scriptul cu cheia veche nu mai poate trimite date.",
+                    )
+                  )
+                    regenerate.mutate();
+                }}
+              >
+                <Icon name="key" size={14} />{" "}
+                {data?.key_configured ? "Cheie nouă" : "Generează cheia"}
+              </button>
+            </div>
+          ) : (
+            <div className="muted" style={{ fontSize: 13 }}>
+              Doar adminul generează cheia.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div>
+          <h3>Scriptul pentru 1C</h3>
+          <p>
+            Rulează pe calculatorul Windows cu 1C și baza de tip fișier; nu cere publicare pe web.
+          </p>
+        </div>
+        <div className="stack" style={{ fontSize: 13 }}>
+          <div>
+            <button
+              className="btn sm"
+              disabled={download.isPending}
+              onClick={() => download.mutate()}
+            >
+              <Icon name="reports" size={14} /> Descarcă export-balances.ps1
+            </button>
+          </div>
+          {download.error && <div className="error">{download.error.message}</div>}
+          <ol className="steps">
+            <li>
+              Pune scriptul într-un folder pe calculatorul cu 1C, de ex. <code>C:\ContaCRM</code>.
+            </li>
+            <li>
+              O singură dată, ca administrator, înregistrează conectorul COM al 1C:{" "}
+              <code>regsvr32 "C:\Program Files\1cv8\&lt;versiunea&gt;\bin\comcntr.dll"</code>
+            </li>
+            <li>
+              Rulează scriptul o dată: creează <code>config.json</code>. Completează calea bazei, un
+              utilizator 1C doar pentru citire și parola lui, <code>crm_url</code> ={" "}
+              <code>{window.location.origin}</code> și cheia de mai sus.
+            </li>
+            <li>
+              <code>.\export-balances.ps1 -Descopera</code> listează numele din configurația 1C
+              (registrul, planul de conturi, câmpul cu codul fiscal). Ajustează-le în{" "}
+              <code>config.json</code> dacă diferă.
+            </li>
+            <li>
+              <code>.\export-balances.ps1 -Proba</code> arată soldurile fără să le trimită; apoi
+              fără parametri le trimite în CRM.
+            </li>
+            <li>
+              Programează-l zilnic în Task Scheduler:{" "}
+              <code>powershell -ExecutionPolicy Bypass -File C:\ContaCRM\export-balances.ps1</code>
+            </li>
+          </ol>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Pentru 1C pe 32 de biți, folosește PowerShell din{" "}
+            <code>C:\Windows\SysWOW64\WindowsPowerShell\v1.0\</code>. Conexiunea COM ocupă o licență
+            1C cât rulează scriptul.
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
