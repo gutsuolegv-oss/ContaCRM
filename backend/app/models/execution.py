@@ -17,9 +17,11 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, IdMixin, TimestampMixin, str_enum
+from app.models.classifier import ReportType, ReportTypeStep, Status
+from app.models.client import Client
 
 
 class PeriodType(enum.StrEnum):
@@ -82,6 +84,11 @@ class ReportEntry(IdMixin, TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(Text)
 
+    client: Mapped[Client] = relationship(lazy="raise")
+    report_type: Mapped[ReportType] = relationship(lazy="raise")
+    period: Mapped[ReportPeriod] = relationship(lazy="raise")
+    steps: Mapped[list["ReportEntryStep"]] = relationship(lazy="raise")
+
 
 class ReportEntryStep(IdMixin, Base):
     """Statusul curent al unei etape. Că statusul aparține setului etapei verifică serviciul."""
@@ -102,3 +109,6 @@ class ReportEntryStep(IdMixin, Base):
         BigInteger, ForeignKey("users.id", ondelete="RESTRICT")
     )
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    step: Mapped[ReportTypeStep] = relationship(lazy="raise")
+    status: Mapped[Status] = relationship(lazy="raise")

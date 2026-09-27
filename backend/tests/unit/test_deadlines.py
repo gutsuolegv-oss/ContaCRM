@@ -5,7 +5,7 @@ import pytest
 
 from app.models import DeadlineRule, PeriodType
 from app.services.deadlines import WorkCalendar, base_deadline, calculate_deadline
-from app.services.periods import add_months, period_bounds
+from app.services.periods import add_months, period_bounds, periods_ending_in
 
 # Sărbători 2026 folosite în teste (subset).
 CALENDAR = WorkCalendar(
@@ -170,3 +170,25 @@ def test_add_months() -> None:
     assert add_months(2026, 12, 1) == (2027, 1)
     assert add_months(2026, 1, 0) == (2026, 1)
     assert add_months(2026, 6, 24) == (2028, 6)
+
+
+@pytest.mark.parametrize(
+    ("month", "expected"),
+    [
+        (1, [(PeriodType.LUNAR, 1)]),
+        (3, [(PeriodType.LUNAR, 3), (PeriodType.TRIMESTRIAL, 1)]),
+        (6, [(PeriodType.LUNAR, 6), (PeriodType.TRIMESTRIAL, 2), (PeriodType.SEMESTRIAL, 1)]),
+        (9, [(PeriodType.LUNAR, 9), (PeriodType.TRIMESTRIAL, 3)]),
+        (
+            12,
+            [
+                (PeriodType.LUNAR, 12),
+                (PeriodType.TRIMESTRIAL, 4),
+                (PeriodType.SEMESTRIAL, 2),
+                (PeriodType.ANUAL, 1),
+            ],
+        ),
+    ],
+)
+def test_periods_ending_in(month: int, expected: list[tuple[PeriodType, int]]) -> None:
+    assert periods_ending_in(month) == expected

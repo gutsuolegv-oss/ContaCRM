@@ -3,7 +3,7 @@
 import calendar
 from datetime import date
 
-from app.models import PeriodType
+from app.models import Periodicity, PeriodType
 
 MONTHS_PER_PERIOD = {
     PeriodType.LUNAR: 1,
@@ -11,6 +11,25 @@ MONTHS_PER_PERIOD = {
     PeriodType.SEMESTRIAL: 6,
     PeriodType.ANUAL: 12,
 }
+
+
+# Periodicitatea unui raport → tipul perioadei. `la_cerere` nu are perioade fixe.
+PERIOD_TYPE_FOR = {
+    Periodicity.LUNAR: PeriodType.LUNAR,
+    Periodicity.TRIMESTRIAL: PeriodType.TRIMESTRIAL,
+    Periodicity.SEMESTRIAL: PeriodType.SEMESTRIAL,
+    Periodicity.ANUAL: PeriodType.ANUAL,
+}
+
+
+def periods_ending_in(month: int) -> list[tuple[PeriodType, int]]:
+    """Perioadele care se termină în luna dată, ca (tip, număr): grila lunii le conține pe
+    toate. Septembrie → lunar 9 și trimestrul III; decembrie → și semestrul II și anul."""
+    return [
+        (period_type, month // months)
+        for period_type, months in MONTHS_PER_PERIOD.items()
+        if month % months == 0
+    ]
 
 
 def add_months(year: int, month: int, months: int) -> tuple[int, int]:
