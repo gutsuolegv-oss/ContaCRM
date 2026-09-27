@@ -242,3 +242,9 @@ async def test_require_roles(session: AsyncSession, make_user: MakeUser) -> None
     assert ok.status_code == 200
     assert denied.status_code == 403
     assert anon.status_code == 401
+
+
+def test_insecure_cookie_only_outside_prod() -> None:
+    assert Settings(environment="dev", session_cookie_secure=False).cookie_secure is False
+    with pytest.raises(ValueError, match="producție"):
+        Settings(environment="prod", session_cookie_secure=False)

@@ -10,6 +10,8 @@ import os
 
 # Forțat, nu setdefault: containerul de dezvoltare are ENVIRONMENT=dev.
 os.environ["ENVIRONMENT"] = "test"
+# Setările locale de dezvoltare nu influențează testele.
+os.environ.pop("SESSION_COOKIE_SECURE", None)
 
 from collections.abc import AsyncIterator
 from pathlib import Path

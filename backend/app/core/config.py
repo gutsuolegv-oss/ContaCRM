@@ -1,9 +1,9 @@
 """Configurația aplicației. Toate valorile vin din variabile de mediu (.env)."""
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,11 +23,23 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 
+    # Doar pentru dezvoltare prin HTTP simplu pe rețeaua locală (ex. http://192.168.x.x:5173):
+    # false = cookie-ul de sesiune fără atributul Secure. Interzis în producție.
+    session_cookie_secure: bool | None = None
+
+    @model_validator(mode="after")
+    def _no_insecure_cookie_in_prod(self) -> Self:
+        if self.environment == "prod" and self.session_cookie_secure is False:
+            raise ValueError("SESSION_COOKIE_SECURE=false nu e permis în producție")
+        return self
+
     @property
     def cookie_secure(self) -> bool:
-        """Cookie-ul de sesiune doar pe HTTPS. Excepție: testele (clientul HTTP de test nu
-        folosește HTTPS). În dezvoltare merge prin http://localhost (tunel SSH), pe care
-        browserele îl tratează ca sigur."""
+        """Cookie-ul de sesiune doar pe HTTPS. Excepții: testele (clientul HTTP de test nu
+        folosește HTTPS) și SESSION_COOKIE_SECURE=false în dezvoltare. Prin http://localhost
+        (tunel SSH) merge și cu Secure: browserele tratează localhost ca sigur."""
+        if self.session_cookie_secure is not None:
+            return self.session_cookie_secure
         return self.environment != "test"
 
 
