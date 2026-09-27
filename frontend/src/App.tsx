@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router";
 
 import { AuthProvider } from "./auth/AuthContext";
-import { useAuth } from "./auth/useAuth";
+import { isEditor, useAuth, useMe } from "./auth/useAuth";
 import { Layout } from "./components/Layout";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { ClassifierPage } from "./pages/ClassifierPage";
@@ -28,6 +28,12 @@ function Gate() {
   return <Outlet />;
 }
 
+/** Paginile de configurare: doar admin și director; contabilul ajunge la lista de clienți. */
+function EditorOnly() {
+  const me = useMe();
+  return isEditor(me) ? <Outlet /> : <Navigate to="/clienti" replace />;
+}
+
 const router = createBrowserRouter([
   {
     element: <Gate />,
@@ -40,9 +46,14 @@ const router = createBrowserRouter([
           { path: "clienti/nou", element: <NewClientPage /> },
           { path: "clienti/:id", element: <ClientPage /> },
           { path: "grila", element: <GridPage /> },
-          { path: "clasificator", element: <ClassifierPage /> },
-          { path: "utilizatori", element: <UsersPage /> },
-          { path: "setari", element: <SettingsPage /> },
+          {
+            element: <EditorOnly />,
+            children: [
+              { path: "clasificator", element: <ClassifierPage /> },
+              { path: "utilizatori", element: <UsersPage /> },
+              { path: "setari", element: <SettingsPage /> },
+            ],
+          },
           { path: "*", element: <NotFound /> },
         ],
       },

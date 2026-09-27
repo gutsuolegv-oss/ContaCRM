@@ -13,7 +13,6 @@ interface NavItem {
   to: string;
   label: string;
   icon: IconName;
-  show?: boolean;
 }
 
 export function Layout() {
@@ -35,9 +34,10 @@ export function Layout() {
     { to: "/grila", label: "Grila lunii", icon: "grid" },
     { to: "/clienti", label: "Clienți", icon: "clients" },
   ];
+  // Configurarea: doar admin și director (contabilul nu vede secțiunea)
   const admin: NavItem[] = [
     { to: "/clasificator", label: "Clasificator", icon: "layers" },
-    { to: "/utilizatori", label: "Utilizatori", icon: "team", show: isEditor(me) },
+    { to: "/utilizatori", label: "Utilizatori", icon: "team" },
     { to: "/setari", label: "Setări", icon: "settings" },
   ];
 
@@ -62,14 +62,12 @@ export function Layout() {
   }, []);
 
   const links = (items: NavItem[]) =>
-    items
-      .filter((i) => i.show !== false)
-      .map((i) => (
-        <NavLink key={i.to} to={i.to}>
-          <Icon name={i.icon} />
-          {i.label}
-        </NavLink>
-      ));
+    items.map((i) => (
+      <NavLink key={i.to} to={i.to}>
+        <Icon name={i.icon} />
+        {i.label}
+      </NavLink>
+    ));
 
   return (
     <div className="app">
@@ -83,8 +81,12 @@ export function Layout() {
         </div>
         <div className="nav-label">Lucru</div>
         <nav className="nav">{links(work)}</nav>
-        <div className="nav-label">Configurare</div>
-        <nav className="nav">{links(admin)}</nav>
+        {isEditor(me) && (
+          <>
+            <div className="nav-label">Configurare</div>
+            <nav className="nav">{links(admin)}</nav>
+          </>
+        )}
 
         <div className="user-card">
           <Avatar name={me.full_name} size={34} />
