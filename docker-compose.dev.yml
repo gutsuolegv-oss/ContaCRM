@@ -1,0 +1,30 @@
+# Suprascrieri pentru dezvoltare și teste. NU se folosește în producție.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend pytest
+#
+# Diferențe față de producție:
+#   - imaginea backend include dependențele de test (pytest, ruff, mypy);
+#   - codul din ./backend e montat în container și uvicorn repornește la modificări;
+#   - API-ul e publicat DOAR pe 127.0.0.1:8000 al VM-ului (acces din afară prin tunel SSH:
+#     ssh -L 8000:127.0.0.1:8000 wcontacrm@<ip-vm>, apoi http://localhost:8000/docs).
+#     Pentru asta backend-ul intră și într-o rețea ne-internă (dev_access).
+
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      ENVIRONMENT: dev
+    volumes:
+      - ./backend:/app
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks: [crm_internal, dev_access]
+
+networks:
+  dev_access:
+    ipam: { config: [{ subnet: 172.29.0.0/24 }] }
