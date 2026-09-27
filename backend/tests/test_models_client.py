@@ -58,7 +58,7 @@ async def test_client_defaults(session: AsyncSession, client_row: Client) -> Non
     await session.refresh(client_row)
     assert client_row.client_status is ClientStatus.ONBOARDING
     assert client_row.status is RecordStatus.ACTIVE
-    assert client_row.vat_payer is False
+    assert client_row.is_vat_payer is False
 
 
 @pytest.mark.parametrize("idno", ["123", "10036000123456", "100360001234A"])
@@ -83,7 +83,7 @@ async def test_vat_code_only_for_vat_payers(session: AsyncSession) -> None:
             name="A",
             idno="1000000000001",
             legal_form=LegalForm.SA,
-            vat_payer=True,
+            is_vat_payer=True,
             vat_code="0600012",
         )
     )

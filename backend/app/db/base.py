@@ -20,14 +20,14 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-def str_enum(enum_cls: type[enum.StrEnum], name: str) -> Enum:
+def str_enum(enum_cls: type[enum.StrEnum], name: str, length: int = 16) -> Enum:
     """Enum salvat ca text (valorile, nu numele membrilor), cu constrângere CHECK în bază."""
     return Enum(
         enum_cls,
         name=name,
         native_enum=False,
         create_constraint=True,
-        length=16,
+        length=length,
         values_callable=lambda e: [m.value for m in e],
     )
 

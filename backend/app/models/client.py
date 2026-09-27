@@ -39,7 +39,7 @@ class Client(IdMixin, TimestampMixin, SoftDeleteMixin, Base):
     __table_args__ = (
         CheckConstraint(r"idno ~ '^[0-9]{13}$'", name="idno_format"),
         CheckConstraint(
-            r"vat_code IS NULL OR (vat_payer AND vat_code ~ '^[0-9]{7}$')", name="vat_code"
+            r"vat_code IS NULL OR (is_vat_payer AND vat_code ~ '^[0-9]{7}$')", name="vat_code"
         ),
         Index(
             "uq_clients_idno_active",
@@ -53,8 +53,13 @@ class Client(IdMixin, TimestampMixin, SoftDeleteMixin, Base):
     full_name: Mapped[str | None] = mapped_column(String(500))
     idno: Mapped[str] = mapped_column(String(13))
     legal_form: Mapped[LegalForm] = mapped_column(str_enum(LegalForm, "legal_form"))
-    vat_payer: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    is_vat_payer: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     vat_code: Mapped[str | None] = mapped_column(String(7))
+    # Atribute folosite de regulile de aplicabilitate a rapoartelor (report_rules.conditions).
+    is_it_park_resident: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    has_employees: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    has_transport: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    tax_regime: Mapped[str | None] = mapped_column(String(30))  # valorile încă de stabilit
     locality: Mapped[str | None] = mapped_column(String(100))
     legal_address: Mapped[str | None] = mapped_column(String(500))
     caem_code: Mapped[str | None] = mapped_column(String(10))

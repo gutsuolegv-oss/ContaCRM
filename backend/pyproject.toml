@@ -47,6 +47,7 @@ ignore = ["S101"]  # assert în teste
 
 [tool.ruff.lint.per-file-ignores]
 "tests/conftest.py" = ["E402"]  # ENVIRONMENT se setează înaintea importurilor din app
+"migrations/versions/*" = ["E501"]  # SQL generat (CHECK-uri) pe un singur rând
 
 [tool.mypy]
 python_version = "3.11"
