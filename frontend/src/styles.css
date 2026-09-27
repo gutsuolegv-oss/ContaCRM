@@ -1096,3 +1096,20 @@ select.input {
   color: var(--muted);
   margin-top: 2px;
 }
+
+/* Tipărirea foii de parcurs: doar foaia deschisă, fără restul paginii. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .waybill,
+  .waybill * {
+    visibility: visible;
+  }
+  .waybill {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: 0;
+  }
+}

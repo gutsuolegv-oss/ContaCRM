@@ -16,8 +16,9 @@ import { ErrorBox } from "../components/ErrorBox";
 import { Icon } from "../components/Icon";
 import { formatDate, initials } from "../format";
 import { ClientStatusBadge, VatBadge } from "./ClientsPage";
+import { FleetTab } from "./FleetTab";
 
-type Tab = "legal" | "bank" | "contacts" | "reports" | "team";
+type Tab = "legal" | "bank" | "contacts" | "reports" | "fleet" | "team";
 
 const LEGAL_FORM: Record<string, string> = {
   SRL: "SRL",
@@ -40,6 +41,8 @@ export function ClientPage() {
   if (client.error) return <ErrorBox error={client.error} />;
   if (!client.data) return <div className="loading">Se încarcă…</div>;
   const c = client.data;
+  // Parcul auto: doar la clienții cu transport (bifa din „Date legale”), nearhivați.
+  const hasFleet = c.has_transport && c.status === "active";
 
   const tabButton = (value: Tab, label: string) => (
     <button className={tab === value ? "on" : ""} onClick={() => setTab(value)}>
@@ -84,6 +87,7 @@ export function ClientPage() {
           {tabButton("bank", "Conturi bancare")}
           {tabButton("contacts", "Contacte")}
           {tabButton("reports", "Rapoarte")}
+          {hasFleet && tabButton("fleet", "Parc auto")}
           {tabButton("team", "Contabili")}
         </div>
         <div className="card-b" style={{ padding: 20 }}>
@@ -91,6 +95,7 @@ export function ClientPage() {
           {tab === "bank" && <BankTab client={c} />}
           {tab === "contacts" && <ContactsTab client={c} />}
           {tab === "reports" && <ReportsTab clientId={c.id} />}
+          {tab === "fleet" && hasFleet && <FleetTab client={c} />}
           {tab === "team" && <TeamTab clientId={c.id} />}
         </div>
       </div>

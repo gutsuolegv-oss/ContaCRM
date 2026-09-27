@@ -19,6 +19,7 @@ from app.models.client import (
     LegalForm,
 )
 from app.models.execution import PeriodType, ReportEntry, ReportEntryStep, ReportPeriod
+from app.models.fleet import FuelType, OdometerReading, ReadingSource, Vehicle, Waybill
 from app.models.holiday import Holiday
 from app.models.matrix import ClientReportType, ObligationSource
 from app.models.organization import Organization
@@ -34,12 +35,15 @@ __all__ = [
     "ClientReportType",
     "ClientStatus",
     "DeadlineRule",
+    "FuelType",
     "Holiday",
     "LegalForm",
     "ObligationSource",
+    "OdometerReading",
     "Organization",
     "PeriodType",
     "Periodicity",
+    "ReadingSource",
     "RefreshToken",
     "ReportCategory",
     "ReportEntry",
@@ -53,4 +57,6 @@ __all__ = [
     "StatusSet",
     "User",
     "UserRole",
+    "Vehicle",
+    "Waybill",
 ]

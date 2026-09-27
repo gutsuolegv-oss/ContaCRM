@@ -726,6 +726,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clients/{client_id}/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Vehicles */
+        get: operations["list_vehicles_api_clients__client_id__vehicles_get"];
+        put?: never;
+        /** Create Vehicle */
+        post: operations["create_vehicle_api_clients__client_id__vehicles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Archive Vehicle
+         * @description Scoatere din evidență (ștergere logică); citirile și foile emise rămân.
+         */
+        delete: operations["archive_vehicle_api_vehicles__vehicle_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Vehicle */
+        patch: operations["update_vehicle_api_vehicles__vehicle_id__patch"];
+        trace?: never;
+    };
+    "/api/clients/{client_id}/fleet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Month
+         * @description Automobilele clientului într-o lună: odometru, km, consum, status.
+         */
+        get: operations["fleet_month_api_clients__client_id__fleet_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicle_id}/readings/{year}/{month}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Reading
+         * @description Odometrul la sfârșitul lunii (adăugare sau corectare).
+         */
+        put: operations["save_reading_api_vehicles__vehicle_id__readings__year___month__put"];
+        post?: never;
+        /** Delete Reading */
+        delete: operations["delete_reading_api_vehicles__vehicle_id__readings__year___month__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicle_id}/readings/{year}/{month}/waybill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Waybill */
+        post: operations["issue_waybill_api_vehicles__vehicle_id__readings__year___month__waybill_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/fleet/{year}/{month}/waybills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue Month
+         * @description Foile pentru toate automobilele cu date primite și fără foaie în luna dată.
+         */
+        post: operations["issue_month_api_clients__client_id__fleet__year___month__waybills_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{client_id}/waybills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Waybills
+         * @description Foile emise, cele mai recente primele.
+         */
+        get: operations["list_waybills_api_clients__client_id__waybills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/waybills/{waybill_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Waybill */
+        get: operations["get_waybill_api_waybills__waybill_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel Waybill
+         * @description Anulare: foaia dispare (rămâne în jurnalul de modificări), citirea se poate corecta.
+         */
+        delete: operations["cancel_waybill_api_waybills__waybill_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -1280,6 +1438,46 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
+        /** FleetMonthOut */
+        FleetMonthOut: {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /** Rows */
+            rows: components["schemas"]["FleetRowOut"][];
+        };
+        /**
+         * FleetRowOut
+         * @description Un automobil într-o lună. `status`: așteptăm date / întârziat (luna s-a încheiat fără
+         *     date) / date primite / foaie emisă.
+         */
+        FleetRowOut: {
+            vehicle: components["schemas"]["VehicleOut"];
+            /** Start Odometer */
+            start_odometer: number;
+            reading: components["schemas"]["ReadingOut"] | null;
+            /** Km */
+            km: number | null;
+            /** Fuel Liters */
+            fuel_liters: number | null;
+            waybill: components["schemas"]["WaybillBrief"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "late" | "received" | "issued";
+        };
+        /**
+         * FuelType
+         * @enum {string}
+         */
+        FuelType: "benzina" | "motorina" | "gpl" | "hibrid";
         /** GenerationOut */
         GenerationOut: {
             /** Year */
@@ -1422,6 +1620,37 @@ export interface components {
             /** Idno */
             idno: string;
         };
+        /** ReadingIn */
+        ReadingIn: {
+            /** End Odometer */
+            end_odometer: number;
+            /** @default other */
+            source: components["schemas"]["ReadingSource"];
+            /**
+             * Received On
+             * Format: date
+             */
+            received_on: string;
+        };
+        /** ReadingOut */
+        ReadingOut: {
+            /** Id */
+            id: number;
+            /** End Odometer */
+            end_odometer: number;
+            source: components["schemas"]["ReadingSource"];
+            /**
+             * Received On
+             * Format: date
+             */
+            received_on: string;
+        };
+        /**
+         * ReadingSource
+         * @description Cum a transmis clientul odometrul (Telegram: când va exista gateway-ul).
+         * @enum {string}
+         */
+        ReadingSource: "email" | "phone" | "telegram" | "other";
         /**
          * RecalculateDiff
          * @description Rezultatul motorului de reguli comparat cu obligațiile actuale ale clientului.
@@ -1922,6 +2151,106 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VehicleCreate */
+        VehicleCreate: {
+            /** Plate */
+            plate: string;
+            /** Model */
+            model: string;
+            fuel_type: components["schemas"]["FuelType"];
+            /** Fuel Norm */
+            fuel_norm: number | string;
+            /** Driver */
+            driver?: string | null;
+            /** Initial Odometer */
+            initial_odometer: number;
+        };
+        /** VehicleOut */
+        VehicleOut: {
+            /** Id */
+            id: number;
+            /** Client Id */
+            client_id: number;
+            /** Plate */
+            plate: string;
+            /** Model */
+            model: string;
+            fuel_type: components["schemas"]["FuelType"];
+            /** Fuel Norm */
+            fuel_norm: number;
+            /** Driver */
+            driver: string | null;
+            /** Initial Odometer */
+            initial_odometer: number;
+            status: components["schemas"]["RecordStatus"];
+        };
+        /**
+         * VehicleUpdate
+         * @description `initial_odometer` se poate schimba doar cât automobilul nu are citiri.
+         */
+        VehicleUpdate: {
+            /** Plate */
+            plate?: string | null;
+            /** Model */
+            model?: string | null;
+            fuel_type?: components["schemas"]["FuelType"] | null;
+            /** Fuel Norm */
+            fuel_norm?: number | string | null;
+            /** Driver */
+            driver?: string | null;
+            /** Initial Odometer */
+            initial_odometer?: number | null;
+        };
+        /** WaybillBrief */
+        WaybillBrief: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+        };
+        /** WaybillOut */
+        WaybillOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Client Id */
+            client_id: number;
+            /** Client Name */
+            client_name: string;
+            /** Client Idno */
+            client_idno: string;
+            /** Vehicle Id */
+            vehicle_id: number;
+            /** Plate */
+            plate: string;
+            /** Model */
+            model: string;
+            fuel_type: components["schemas"]["FuelType"];
+            /** Driver */
+            driver: string | null;
+            /** Fuel Norm */
+            fuel_norm: number;
+            /** Start Odometer */
+            start_odometer: number;
+            /** End Odometer */
+            end_odometer: number;
+            /** Km */
+            km: number;
+            /** Fuel Liters */
+            fuel_liters: number;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Issued By Name */
+            issued_by_name: string | null;
         };
     };
     responses: never;
@@ -3692,6 +4021,395 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AssignmentOut"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vehicles_api_clients__client_id__vehicles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_vehicle_api_clients__client_id__vehicles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_vehicle_api_vehicles__vehicle_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_vehicle_api_vehicles__vehicle_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicle_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_month_api_clients__client_id__fleet_get: {
+        parameters: {
+            query: {
+                year: number;
+                month: number;
+            };
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetMonthOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_reading_api_vehicles__vehicle_id__readings__year___month__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicle_id: number;
+                year: number;
+                month: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_reading_api_vehicles__vehicle_id__readings__year___month__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicle_id: number;
+                year: number;
+                month: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_waybill_api_vehicles__vehicle_id__readings__year___month__waybill_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicle_id: number;
+                year: number;
+                month: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaybillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_month_api_clients__client_id__fleet__year___month__waybills_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+                year: number;
+                month: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaybillOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_waybills_api_clients__client_id__waybills_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaybillOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_waybill_api_waybills__waybill_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                waybill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaybillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_waybill_api_waybills__waybill_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                waybill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

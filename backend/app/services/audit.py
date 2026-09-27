@@ -2,6 +2,7 @@
 
 import enum
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import inspect
@@ -21,6 +22,8 @@ def _json(value: Any) -> Any:
         return value.value
     if isinstance(value, date | datetime):
         return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)  # exact, fără erorile de rotunjire ale unui float
     return value
 
 

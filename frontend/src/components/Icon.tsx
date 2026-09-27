@@ -15,6 +15,8 @@ const PATHS = {
   grid: "M4 4h16v16H4zM4 10h16M4 15h16M10 4v16M15 4v16",
   logout: "M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l4-4-4-4M14 12H3",
   moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",
+  truck:
+    "M3 6h11v10H3zM14 10h4l3 3v3h-7M7 16a2 2 0 1 1 0 4 2 2 0 0 1 0-4M17 16a2 2 0 1 1 0 4 2 2 0 0 1 0-4",
 } as const;
 
 export type IconName = keyof typeof PATHS;
