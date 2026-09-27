@@ -129,6 +129,7 @@ def _rt(**kw: Any) -> ReportTypeCreate:
 def test_report_type_defaults() -> None:
     rt = _rt()
     assert rt.notify_days_before == [7, 3, 1]
+    assert rt.deadline_month_offset == 1
     assert rt.deadline_rule is DeadlineRule.DAY_OF_NEXT_PERIOD
     assert rt.valid_from == date(2026, 1, 1)
 
@@ -157,6 +158,7 @@ def test_codes_rejected(code: str) -> None:
         ({"deadline_day": 0}, "greater than or equal"),
         ({"valid_to": "2025-12-31"}, "valid_to"),
         ({"notify_days_before": [400]}, "less than or equal"),
+        ({"deadline_month_offset": -1}, "greater than or equal"),
         ({"necunoscut": 1}, "Extra inputs"),
     ],
 )

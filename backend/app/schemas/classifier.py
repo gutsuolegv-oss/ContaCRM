@@ -31,6 +31,7 @@ def check_valid_range(valid_from: date | None, valid_to: date | None) -> None:
 
 Day = Annotated[int, Field(ge=1, le=31)]
 Month = Annotated[int, Field(ge=1, le=12)]
+MonthOffset = Annotated[int, Field(ge=0, le=24)]
 NotifyDays = Annotated[list[Annotated[int, Field(ge=0, le=365)]], Field(max_length=10)]
 
 
@@ -195,6 +196,7 @@ class ReportTypeCreate(InputModel):
     deadline_rule: DeadlineRule
     deadline_day: Day | None = None
     deadline_month: Month | None = None
+    deadline_month_offset: MonthOffset = 1
     requires_payment: bool = False
     notify_days_before: NotifyDays = Field(default_factory=lambda: [7, 3, 1])
     valid_from: date
@@ -224,6 +226,7 @@ class ReportTypeUpdate(InputModel):
     deadline_rule: DeadlineRule | None = None
     deadline_day: Day | None = None
     deadline_month: Month | None = None
+    deadline_month_offset: MonthOffset | None = None
     requires_payment: bool | None = None
     notify_days_before: NotifyDays | None = None
     valid_from: date | None = None
@@ -250,6 +253,7 @@ class ReportTypeOut(ORMModel):
     deadline_rule: DeadlineRule
     deadline_day: int | None
     deadline_month: int | None
+    deadline_month_offset: int
     requires_payment: bool
     notify_days_before: list[int]
     valid_from: date

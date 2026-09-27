@@ -37,8 +37,10 @@ class Periodicity(enum.StrEnum):
 
 
 class DeadlineRule(enum.StrEnum):
-    DAY_OF_NEXT_PERIOD = "day_of_next_period"  # ziua `deadline_day` după perioada de gestiune
-    FIXED_DATE = "fixed_date"  # `deadline_day`.`deadline_month`
+    # ziua `deadline_day` din luna aflată la `deadline_month_offset` luni după sfârșitul perioadei
+    DAY_OF_NEXT_PERIOD = "day_of_next_period"
+    # prima dată `deadline_day`.`deadline_month` de după sfârșitul perioadei
+    FIXED_DATE = "fixed_date"
     MANUAL = "manual"  # fără termen calculat
 
 
@@ -100,6 +102,9 @@ class ReportType(IdMixin, TimestampMixin, Base):
         CheckConstraint("deadline_day BETWEEN 1 AND 31", name="deadline_day_range"),
         CheckConstraint("deadline_month BETWEEN 1 AND 12", name="deadline_month_range"),
         CheckConstraint(
+            "deadline_month_offset BETWEEN 0 AND 24", name="deadline_month_offset_range"
+        ),
+        CheckConstraint(
             "deadline_rule <> 'day_of_next_period' OR deadline_day IS NOT NULL",
             name="next_period_needs_day",
         ),
@@ -122,6 +127,9 @@ class ReportType(IdMixin, TimestampMixin, Base):
     deadline_rule: Mapped[DeadlineRule] = mapped_column(str_enum(DeadlineRule, "deadline_rule", 30))
     deadline_day: Mapped[int | None] = mapped_column(Integer)
     deadline_month: Mapped[int | None] = mapped_column(Integer)
+    # Câte luni după luna în care se termină perioada (1 = luna următoare). Doar la
+    # day_of_next_period. Ex.: TL13, semestrul I → ziua 25, offset 1 → 25 iulie.
+    deadline_month_offset: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     requires_payment: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     notify_days_before: Mapped[list[int]] = mapped_column(
         ARRAY(Integer), server_default=text("'{7,3,1}'")

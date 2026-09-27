@@ -76,6 +76,7 @@ async def test_report_type_versions_by_valid_from(
         {"deadline_day": 32},
         {"deadline_rule": DeadlineRule.FIXED_DATE, "deadline_month": 13},
         {"valid_to": date(2025, 12, 31)},  # înainte de valid_from
+        {"deadline_month_offset": 25},
     ],
 )
 async def test_report_type_checks(
