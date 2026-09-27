@@ -29,8 +29,8 @@ class AuthService:
         self.users = UserRepository(session)
         self.tokens = RefreshTokenRepository(session)
 
-    async def login(self, email: str, password: str) -> TokenPair:
-        user = await self.users.get_active_by_email(email)
+    async def login(self, username: str, password: str) -> TokenPair:
+        user = await self.users.get_active_by_username(username)
         if user is None:
             security.verify_password(security.dummy_password_hash(), password)
             raise AuthError

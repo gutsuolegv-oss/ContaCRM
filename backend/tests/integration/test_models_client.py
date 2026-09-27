@@ -35,7 +35,7 @@ async def _users(session: AsyncSession, n: int) -> list[User]:
     users = [
         User(
             organization_id=org.id,
-            email=f"c{i}@birou.md",
+            username=f"c{i}",
             full_name=f"Contabil {i}",
             password_hash="x",  # noqa: S106
             role=UserRole.CONTABIL,

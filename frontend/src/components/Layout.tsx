@@ -90,8 +90,8 @@ export function Layout() {
           <Avatar name={me.full_name} size={34} />
           <div className="grow">
             <div className="name">{me.full_name}</div>
-            <div className="role" title={me.email}>
-              {ROLE_LABEL[me.role]} · {me.email}
+            <div className="role" title={me.username}>
+              {ROLE_LABEL[me.role]} · {me.username}
             </div>
           </div>
           <button

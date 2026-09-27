@@ -16,8 +16,8 @@ INITIAL_PW = "parola-initiala-1"
 NEW_PW = "parola-noua-ana-2026"
 
 
-async def login(api: AsyncClient, email: str, password: str) -> dict[str, Any]:
-    return await login_with_cookie(api, email, password)
+async def login(api: AsyncClient, username: str, password: str) -> dict[str, Any]:
+    return await login_with_cookie(api, username, password)
 
 
 def bearer(tokens: dict[str, Any]) -> dict[str, str]:
@@ -26,21 +26,19 @@ def bearer(tokens: dict[str, Any]) -> dict[str, str]:
 
 @pytest.fixture
 async def admin(session: AsyncSession) -> User:
-    return await make_user(
-        session, "admin@birou.md", UserRole.ADMIN, password_hash=hash_password(ADMIN_PW)
-    )
+    return await make_user(session, "admin", UserRole.ADMIN, password_hash=hash_password(ADMIN_PW))
 
 
 @pytest.fixture
 async def admin_h(api: AsyncClient, admin: User) -> dict[str, str]:
-    return bearer(await login(api, admin.email, ADMIN_PW))
+    return bearer(await login(api, admin.username, ADMIN_PW))
 
 
 async def create_ana(api: AsyncClient, admin_h: dict[str, str]) -> dict[str, Any]:
     resp = await api.post(
         "/api/users",
         json={
-            "email": " Ana@Birou.md ",
+            "username": " Ana ",
             "full_name": "Ana Rusu",
             "role": "contabil",
             "password": INITIAL_PW,
@@ -54,14 +52,14 @@ async def create_ana(api: AsyncClient, admin_h: dict[str, str]) -> dict[str, Any
 
 async def test_create_user(api: AsyncClient, admin_h: dict[str, str]) -> None:
     ana = await create_ana(api, admin_h)
-    assert ana["email"] == "ana@birou.md"
+    assert ana["username"] == "ana"
     assert ana["must_change_password"] is True
     assert "password" not in str(ana).replace("must_change_password", "")
 
     dup = await api.post(
         "/api/users",
         json={
-            "email": "ANA@birou.md",
+            "username": "ANA",
             "full_name": "X",
             "role": "contabil",
             "password": INITIAL_PW,
@@ -69,9 +67,9 @@ async def test_create_user(api: AsyncClient, admin_h: dict[str, str]) -> None:
         headers=admin_h,
     )
     assert dup.status_code == 409
-    for bad in ({"password": "scurta"}, {"email": "fara-arond"}, {"role": "superuser"}):
+    for bad in ({"password": "scurta"}, {"username": "cu spațiu"}, {"role": "superuser"}):
         body = {
-            "email": "x@birou.md",
+            "username": "xx",
             "full_name": "X",
             "role": "contabil",
             "password": INITIAL_PW,
@@ -83,9 +81,9 @@ async def test_create_user(api: AsyncClient, admin_h: dict[str, str]) -> None:
 async def test_only_admin_manages(
     api: AsyncClient, session: AsyncSession, admin: User, role: UserRole
 ) -> None:
-    await make_user(session, "x@birou.md", role, password_hash=hash_password(ADMIN_PW))
-    headers = bearer(await login(api, "x@birou.md", ADMIN_PW))
-    body = {"email": "y@birou.md", "full_name": "Y", "role": "contabil", "password": INITIAL_PW}
+    await make_user(session, "xx", role, password_hash=hash_password(ADMIN_PW))
+    headers = bearer(await login(api, "xx", ADMIN_PW))
+    body = {"username": "yy", "full_name": "Y", "role": "contabil", "password": INITIAL_PW}
     assert (await api.post("/api/users", json=body, headers=headers)).status_code == 403
     listing = await api.get("/api/users", headers=headers)
     assert listing.status_code == (200 if role is UserRole.DIRECTOR else 403)
@@ -93,7 +91,7 @@ async def test_only_admin_manages(
 
 async def test_first_login_must_change_password(api: AsyncClient, admin_h: dict[str, str]) -> None:
     await create_ana(api, admin_h)
-    first = await login(api, "ana@birou.md", INITIAL_PW)
+    first = await login(api, "ana", INITIAL_PW)
 
     me = await api.get("/api/auth/me", headers=bearer(first))
     assert me.status_code == 200 and me.json()["must_change_password"] is True
@@ -124,12 +122,12 @@ async def test_first_login_must_change_password(api: AsyncClient, admin_h: dict[
     refresh = await post_with_refresh(api, "/api/auth/refresh", first["refresh_token"])
     assert refresh.status_code == 401
     assert (await api.get("/api/clients", headers=bearer(changed.json()))).status_code == 200
-    await login(api, "ana@birou.md", NEW_PW)
+    await login(api, "ana", NEW_PW)
 
 
 async def test_admin_reset_closes_sessions(api: AsyncClient, admin_h: dict[str, str]) -> None:
     ana = await create_ana(api, admin_h)
-    tokens = await login(api, "ana@birou.md", INITIAL_PW)
+    tokens = await login(api, "ana", INITIAL_PW)
     reset = await api.post(
         f"/api/users/{ana['id']}/reset-password",
         json={"password": "alta-parola-12345"},
@@ -139,9 +137,9 @@ async def test_admin_reset_closes_sessions(api: AsyncClient, admin_h: dict[str, 
     assert (await api.get("/api/auth/me", headers=bearer(tokens))).status_code == 401
     refresh = await post_with_refresh(api, "/api/auth/refresh", tokens["refresh_token"])
     assert refresh.status_code == 401
-    old = await api.post("/api/auth/login", json={"email": "ana@birou.md", "password": INITIAL_PW})
+    old = await api.post("/api/auth/login", json={"username": "ana", "password": INITIAL_PW})
     assert old.status_code == 401
-    await login(api, "ana@birou.md", "alta-parola-12345")
+    await login(api, "ana", "alta-parola-12345")
 
 
 async def test_archive_accountant(
@@ -156,7 +154,7 @@ async def test_archive_accountant(
     resp = await api.delete(f"/api/users/{ana.id}", headers=admin_h)
     assert resp.status_code == 200 and resp.json()["status"] == "archived"
     login_after = await api.post(
-        "/api/auth/login", json={"email": "ana@birou.md", "password": INITIAL_PW}
+        "/api/auth/login", json={"username": "ana", "password": INITIAL_PW}
     )
     assert login_after.status_code == 401
     assignment = (
@@ -167,10 +165,10 @@ async def test_archive_accountant(
     assert assignment.unassigned_by == admin.id
 
     active = await api.get("/api/users", headers=admin_h)
-    assert [u["email"] for u in active.json()] == ["admin@birou.md"]
+    assert [u["username"] for u in active.json()] == ["admin"]
     everyone = await api.get("/api/users", params={"include_archived": True}, headers=admin_h)
     assert len(everyone.json()) == 2
-    # emailul se poate refolosi
+    # numele de utilizator se poate refolosi
     await create_ana(api, admin_h)
 
 
@@ -182,7 +180,7 @@ async def test_last_admin_protected(api: AsyncClient, admin: User, admin_h: dict
     second = await api.post(
         "/api/users",
         json={
-            "email": "admin2@birou.md",
+            "username": "admin2",
             "full_name": "Admin 2",
             "role": "admin",
             "password": INITIAL_PW,

@@ -23,7 +23,7 @@ from tests.integration.factories import eq, make_classifier, make_client, make_u
 
 @pytest.fixture
 async def admin(session: AsyncSession) -> User:
-    return await make_user(session, "admin@birou.md", UserRole.ADMIN)
+    return await make_user(session, "admin", UserRole.ADMIN)
 
 
 @pytest.fixture

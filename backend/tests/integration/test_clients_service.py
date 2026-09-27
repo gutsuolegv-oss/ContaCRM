@@ -41,9 +41,9 @@ class Users:
 async def users(session: AsyncSession) -> Users:
     await seed_classifier(session)
     u = Users()
-    u.admin = await make_user(session, "admin@birou.md", UserRole.ADMIN)
-    u.ana = await make_user(session, "ana@birou.md", UserRole.CONTABIL)
-    u.ion = await make_user(session, "ion@birou.md", UserRole.CONTABIL)
+    u.admin = await make_user(session, "admin", UserRole.ADMIN)
+    u.ana = await make_user(session, "ana", UserRole.CONTABIL)
+    u.ion = await make_user(session, "ion", UserRole.CONTABIL)
     return u
 
 

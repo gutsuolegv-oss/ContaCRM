@@ -13,9 +13,9 @@ def refresh_token_of(resp: Response) -> str:
     return token
 
 
-async def login_with_cookie(client: AsyncClient, email: str, password: str) -> dict[str, Any]:
+async def login_with_cookie(client: AsyncClient, username: str, password: str) -> dict[str, Any]:
     """Login; întoarce JSON-ul plus `refresh_token` citit din cookie."""
-    resp = await client.post("/api/auth/login", json={"email": email, "password": password})
+    resp = await client.post("/api/auth/login", json={"username": username, "password": password})
     assert resp.status_code == 200, resp.text
     data: dict[str, Any] = resp.json()
     assert "refresh_token" not in data

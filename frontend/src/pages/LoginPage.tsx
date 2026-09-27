@@ -35,7 +35,7 @@ export function AuthHero() {
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,7 +45,7 @@ export function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await login(email, password);
+      await login(username, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Autentificare eșuată");
     } finally {
@@ -64,15 +64,16 @@ export function LoginPage() {
           </div>
           {error && <div className="error">{error}</div>}
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">Utilizator</label>
             <input
-              id="email"
+              id="username"
               className="input lg"
-              type="email"
               autoComplete="username"
-              placeholder="nume@birou.md"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="ex. ana.rusu"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
             />

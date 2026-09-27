@@ -16,8 +16,8 @@ PASSWORD = "parola-e2e-123456"  # noqa: S105
 SEPT = {"year": 2026, "month": 9}
 
 
-async def login(client: AsyncClient, email: str) -> dict[str, str]:
-    resp = await client.post("/api/auth/login", json={"email": email, "password": PASSWORD})
+async def login(client: AsyncClient, username: str) -> dict[str, str]:
+    resp = await client.post("/api/auth/login", json={"username": username, "password": PASSWORD})
     assert resp.status_code == 200, resp.text
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
@@ -25,11 +25,11 @@ async def login(client: AsyncClient, email: str) -> dict[str, str]:
 async def test_month_of_work(client: AsyncClient, session: AsyncSession) -> None:
     await seed_classifier(session)
     pw = hash_password(PASSWORD)
-    await make_user(session, "admin@birou.md", UserRole.ADMIN, password_hash=pw)
-    ana = await make_user(session, "ana@birou.md", UserRole.CONTABIL, password_hash=pw)
+    await make_user(session, "admin", UserRole.ADMIN, password_hash=pw)
+    ana = await make_user(session, "ana", UserRole.CONTABIL, password_hash=pw)
     firm = await make_client(session, name="Agro-Nord SRL", is_vat_payer=True)
     await assign(session, firm, ana)
-    admin_h, ana_h = await login(client, "admin@birou.md"), await login(client, "ana@birou.md")
+    admin_h, ana_h = await login(client, "admin"), await login(client, "ana")
     final = dict(
         (
             await session.execute(

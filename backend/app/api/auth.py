@@ -56,10 +56,10 @@ def _clear(response: Response) -> None:
 @router.post("/login", response_model=AccessTokenOut)
 async def login(body: LoginIn, response: Response, session: SessionDep) -> AccessTokenOut:
     try:
-        return _session(response, await AuthService(session).login(body.email, body.password))
+        return _session(response, await AuthService(session).login(body.username, body.password))
     except AuthError:
         raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, detail="Email sau parolă greșită"
+            status.HTTP_401_UNAUTHORIZED, detail="Utilizator sau parolă greșită"
         ) from None
 
 

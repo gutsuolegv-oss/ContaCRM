@@ -37,7 +37,7 @@ def password_needs_rehash(password_hash: str) -> bool:
 
 @lru_cache
 def dummy_password_hash() -> str:
-    """Hash verificat când emailul nu există, ca răspunsul să dureze la fel ca la o parolă
+    """Hash verificat când utilizatorul nu există, ca răspunsul să dureze la fel ca la o parolă
     greșită (altfel timpul de răspuns ar arăta ce conturi există)."""
     return _hasher.hash(secrets.token_urlsafe(16))
 

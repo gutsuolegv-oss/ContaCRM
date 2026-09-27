@@ -16,10 +16,11 @@ class UserRole(enum.StrEnum):
 class User(IdMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
-        # Emailul e unic doar printre utilizatorii neșterși; comparația ignoră majusculele.
+        # Numele de utilizator e unic doar printre utilizatorii neșterși; comparația ignoră
+        # majusculele.
         Index(
-            "uq_users_email_lower",
-            func.lower(text("email")),
+            "uq_users_username_lower",
+            func.lower(text("username")),
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
@@ -28,7 +29,7 @@ class User(IdMixin, TimestampMixin, SoftDeleteMixin, Base):
     organization_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("organizations.id", ondelete="RESTRICT")
     )
-    email: Mapped[str] = mapped_column(String(255))
+    username: Mapped[str] = mapped_column(String(50))  # numele de logare, ex. „ana.rusu”
     full_name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(str_enum(UserRole, "role"))

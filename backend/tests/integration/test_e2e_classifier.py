@@ -30,10 +30,10 @@ async def seeded(session: AsyncSession) -> None:
 async def login(
     client: AsyncClient, session: AsyncSession, role: UserRole
 ) -> tuple[User, dict[str, str]]:
-    user = await make_user(
-        session, f"{role.value}@birou.md", role, password_hash=hash_password(PASSWORD)
+    user = await make_user(session, f"{role.value}", role, password_hash=hash_password(PASSWORD))
+    resp = await client.post(
+        "/api/auth/login", json={"username": user.username, "password": PASSWORD}
     )
-    resp = await client.post("/api/auth/login", json={"email": user.email, "password": PASSWORD})
     assert resp.status_code == 200, resp.text
     return user, {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
@@ -208,10 +208,8 @@ async def test_director_edits_deadline(client: AsyncClient, session: AsyncSessio
 
 
 async def test_session_refresh_mid_flow(client: AsyncClient, session: AsyncSession) -> None:
-    user = await make_user(
-        session, "admin@birou.md", UserRole.ADMIN, password_hash=hash_password(PASSWORD)
-    )
-    await client.post("/api/auth/login", json={"email": user.email, "password": PASSWORD})
+    user = await make_user(session, "admin", UserRole.ADMIN, password_hash=hash_password(PASSWORD))
+    await client.post("/api/auth/login", json={"username": user.username, "password": PASSWORD})
     # browserul trimite singur cookie-ul primit la login
     refreshed = await client.post("/api/auth/refresh")
     assert refreshed.status_code == 200

@@ -38,7 +38,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend pyth
 
 `app.seed.demo` încarcă clasificatorul, utilizatorii și clienții din mockup și grilele pe
 august–septembrie 2026. Refuză să ruleze în producție. Parola tuturor utilizatorilor demo:
-`demo-parola-2026` (ex. `admin@birou.md`, `ana.rusu@birou.md`).
+`demo-parola-2026`; logarea se face cu numele de utilizator (ex. `admin`, `ana.rusu`).
 
 Aplicația și API-ul ascultă doar pe `127.0.0.1` al VM-ului. De pe calculatorul tău:
 

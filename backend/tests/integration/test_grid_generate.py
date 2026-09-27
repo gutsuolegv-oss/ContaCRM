@@ -31,7 +31,7 @@ JAN_1 = date(2026, 1, 1)
 @pytest.fixture
 async def admin(session: AsyncSession) -> User:
     await seed_classifier(session)
-    return await make_user(session, "admin@birou.md", UserRole.ADMIN)
+    return await make_user(session, "admin", UserRole.ADMIN)
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ async def entries(session: AsyncSession, client: Client) -> dict[str, ReportEntr
 
 
 async def test_generate_september(session: AsyncSession, admin: User, grid: GridService) -> None:
-    ana = await make_user(session, "ana@birou.md", UserRole.CONTABIL)
+    ana = await make_user(session, "ana", UserRole.CONTABIL)
     firm = await firm_with_obligations(session, admin, is_vat_payer=True, has_employees=True)
     await assign(session, firm, ana)
 

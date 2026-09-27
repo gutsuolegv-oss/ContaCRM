@@ -105,7 +105,7 @@ async def make_client(session: AsyncSession, idno: str = "1003600012345", **kw: 
 
 async def make_user(
     session: AsyncSession,
-    email: str,
+    username: str,
     role: UserRole,
     password_hash: str = "x",  # noqa: S107
 ) -> User:
@@ -116,8 +116,8 @@ async def make_user(
         await session.flush()
     user = User(
         organization_id=org.id,
-        email=email,
-        full_name=email.split("@")[0],
+        username=username,
+        full_name=username,
         password_hash=password_hash,
         role=role,
     )

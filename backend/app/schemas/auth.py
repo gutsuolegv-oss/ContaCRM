@@ -4,7 +4,7 @@ from app.models import UserRole
 
 
 class LoginIn(BaseModel):
-    email: str = Field(max_length=255)
+    username: str = Field(max_length=255)
     password: str = Field(max_length=1024)
 
 
@@ -20,7 +20,7 @@ class MeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    email: str
+    username: str
     full_name: str
     role: UserRole
     must_change_password: bool

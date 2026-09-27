@@ -39,10 +39,10 @@ DEMO_PASSWORD = "demo-parola-2026"  # noqa: S105  # doar pentru dezvoltare
 OBLIGATIONS_FROM = date(2026, 1, 1)
 
 ACCOUNTANTS = [
-    ("ana.rusu@birou.md", "Ana Rusu"),
-    ("ion.ceban@birou.md", "Ion Ceban"),
-    ("maria.lungu@birou.md", "Maria Lungu"),
-    ("victor.popa@birou.md", "Victor Popa"),
+    ("ana.rusu", "Ana Rusu"),
+    ("ion.ceban", "Ion Ceban"),
+    ("maria.lungu", "Maria Lungu"),
+    ("victor.popa", "Victor Popa"),
 ]
 
 # (denumire, IDNO, plătitor TVA, formă, contabil 1-4 sau None, localitate, în onboarding)
@@ -72,18 +72,18 @@ async def _users(session: AsyncSession) -> tuple[User, list[User]]:
         await session.flush()
     password_hash = hash_password(DEMO_PASSWORD)
 
-    def user(email: str, name: str, role: UserRole) -> User:
+    def user(username: str, name: str, role: UserRole) -> User:
         return User(
             organization_id=org.id,
-            email=email,
+            username=username,
             full_name=name,
             role=role,
             password_hash=password_hash,
         )
 
-    admin = user("admin@birou.md", "Administrator", UserRole.ADMIN)
-    director = user("director@birou.md", "Elena Director", UserRole.DIRECTOR)
-    accountants = [user(email, name, UserRole.CONTABIL) for email, name in ACCOUNTANTS]
+    admin = user("admin", "Administrator", UserRole.ADMIN)
+    director = user("director", "Elena Director", UserRole.DIRECTOR)
+    accountants = [user(username, name, UserRole.CONTABIL) for username, name in ACCOUNTANTS]
     session.add_all([admin, director, *accountants])
     await session.commit()
     return admin, accountants
@@ -162,16 +162,16 @@ async def main() -> None:
         sys.exit("Datele demo nu se încarcă în producție.")
     async with get_sessionmaker()() as session:
         await seed_classifier(session)
-        if await session.scalar(select(User).where(User.email == "admin@birou.md")):
-            print("Datele demo există deja (admin@birou.md). Nu am modificat nimic.")
+        if await session.scalar(select(User).where(User.username == "admin")):
+            print("Datele demo există deja (utilizatorul admin). Nu am modificat nimic.")
             return
         admin, accountants = await _users(session)
         await _clients(session, admin, accountants)
         await _work(session, admin)
     print("Date demo încărcate. Utilizatori (parola pentru toți: " + DEMO_PASSWORD + "):")
-    print("  admin@birou.md (admin), director@birou.md (director)")
-    for email, name in ACCOUNTANTS:
-        print(f"  {email} (contabil, {name})")
+    print("  admin (admin), director (director)")
+    for username, name in ACCOUNTANTS:
+        print(f"  {username} (contabil, {name})")
 
 
 if __name__ == "__main__":

@@ -19,10 +19,10 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_active_by_email(self, email: str) -> User | None:
+    async def get_active_by_username(self, username: str) -> User | None:
         result = await self.session.execute(
             select(User).where(
-                func.lower(User.email) == email.strip().lower(),
+                func.lower(User.username) == username.strip().lower(),
                 User.status == RecordStatus.ACTIVE,
                 User.deleted_at.is_(None),
             )

@@ -29,10 +29,10 @@ async def make_user(session: AsyncSession) -> MakeUser:
     session.add(org)
     await session.flush()
 
-    async def _make(email: str = "ana@birou.md", role: UserRole = UserRole.CONTABIL) -> User:
+    async def _make(username: str = "ana", role: UserRole = UserRole.CONTABIL) -> User:
         user = User(
             organization_id=org.id,
-            email=email,
+            username=username,
             full_name="Ana",
             password_hash=hash_password(PASSWORD),
             role=role,
@@ -44,8 +44,8 @@ async def make_user(session: AsyncSession) -> MakeUser:
     return _make
 
 
-async def _login(client: AsyncClient, email: str = "ana@birou.md") -> dict[str, str]:
-    return await login_with_cookie(client, email, PASSWORD)
+async def _login(client: AsyncClient, username: str = "ana") -> dict[str, str]:
+    return await login_with_cookie(client, username, PASSWORD)
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -60,7 +60,7 @@ async def test_login_and_me(client: AsyncClient, make_user: MakeUser) -> None:
     assert resp.status_code == 200
     assert resp.json() == {
         "id": user.id,
-        "email": "ana@birou.md",
+        "username": "ana",
         "full_name": "Ana",
         "role": "contabil",
         "must_change_password": False,
@@ -68,9 +68,9 @@ async def test_login_and_me(client: AsyncClient, make_user: MakeUser) -> None:
     assert user.last_login_at is not None
 
 
-async def test_login_email_case_insensitive(client: AsyncClient, make_user: MakeUser) -> None:
+async def test_login_username_case_insensitive(client: AsyncClient, make_user: MakeUser) -> None:
     await make_user()
-    await _login(client, " ANA@Birou.md ")
+    await _login(client, " ANA ")
 
 
 async def test_refresh_token_stored_only_as_hash(
@@ -83,25 +83,23 @@ async def test_refresh_token_stored_only_as_hash(
 
 
 @pytest.mark.parametrize(
-    ("email", "password"),
-    [("ana@birou.md", "gresita"), ("nimeni@birou.md", PASSWORD)],
+    ("username", "password"),
+    [("ana", "gresita"), ("nimeni", PASSWORD)],
 )
 async def test_login_rejected_with_same_message(
-    client: AsyncClient, make_user: MakeUser, email: str, password: str
+    client: AsyncClient, make_user: MakeUser, username: str, password: str
 ) -> None:
     await make_user()
-    resp = await client.post("/api/auth/login", json={"email": email, "password": password})
+    resp = await client.post("/api/auth/login", json={"username": username, "password": password})
     assert resp.status_code == 401
-    assert resp.json()["detail"] == "Email sau parolă greșită"
+    assert resp.json()["detail"] == "Utilizator sau parolă greșită"
 
 
 async def test_archived_user_cannot_login(client: AsyncClient, make_user: MakeUser) -> None:
     user = await make_user()
     user.status = RecordStatus.ARCHIVED
     user.deleted_at = datetime.now(UTC)
-    resp = await client.post(
-        "/api/auth/login", json={"email": "ana@birou.md", "password": PASSWORD}
-    )
+    resp = await client.post("/api/auth/login", json={"username": "ana", "password": PASSWORD})
     assert resp.status_code == 401
 
 
@@ -199,9 +197,7 @@ async def test_refresh_without_cookie(client: AsyncClient) -> None:
 
 async def test_session_cookie_attributes(client: AsyncClient, make_user: MakeUser) -> None:
     await make_user()
-    resp = await client.post(
-        "/api/auth/login", json={"email": "ana@birou.md", "password": PASSWORD}
-    )
+    resp = await client.post("/api/auth/login", json={"username": "ana", "password": PASSWORD})
     header = resp.headers["set-cookie"].lower()
     assert f"{REFRESH_COOKIE}=" in header
     for attribute in ("httponly", "samesite=strict", "path=/api/auth", "max-age=2592000"):
@@ -230,12 +226,12 @@ async def test_require_roles(session: AsyncSession, make_user: MakeUser) -> None
         return session
 
     app.dependency_overrides[get_session] = _override
-    await make_user("admin@birou.md", UserRole.ADMIN)
-    await make_user("ana@birou.md", UserRole.CONTABIL)
+    await make_user("admin", UserRole.ADMIN)
+    await make_user("ana", UserRole.CONTABIL)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        admin = await _login(ac, "admin@birou.md")
-        contabil = await _login(ac, "ana@birou.md")
+        admin = await _login(ac, "admin")
+        contabil = await _login(ac, "ana")
         ok = await ac.get("/_doar-admin", headers=_bearer(admin["access_token"]))
         denied = await ac.get("/_doar-admin", headers=_bearer(contabil["access_token"]))
         anon = await ac.get("/_doar-admin")

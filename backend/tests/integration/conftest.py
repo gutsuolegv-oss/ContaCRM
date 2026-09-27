@@ -23,7 +23,7 @@ def auth(session: AsyncSession) -> AuthHeaders:
     async def _auth(role: UserRole) -> tuple[User, dict[str, str]]:
         nonlocal counter
         counter += 1
-        user = await make_user(session, f"{role.value}{counter}@birou.md", role)
+        user = await make_user(session, f"{role.value}{counter}", role)
         token = create_access_token(user.id, datetime.now(UTC))
         return user, {"Authorization": f"Bearer {token}"}
 

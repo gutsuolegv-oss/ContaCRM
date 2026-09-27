@@ -61,8 +61,8 @@ class Ctx:
 @pytest.fixture
 async def ctx(session: AsyncSession) -> Ctx:
     await seed_classifier(session)
-    admin = await make_user(session, "admin@birou.md", UserRole.ADMIN)
-    ana = await make_user(session, "ana@birou.md", UserRole.CONTABIL)
+    admin = await make_user(session, "admin", UserRole.ADMIN)
+    ana = await make_user(session, "ana", UserRole.CONTABIL)
     firm = await make_client(
         session, is_vat_payer=True, has_employees=True, is_it_park_resident=True
     )
@@ -164,7 +164,7 @@ async def test_audit_and_noop(ctx: Ctx) -> None:
 
 
 async def test_accountant_permissions(ctx: Ctx) -> None:
-    ion = await make_user(ctx.session, "ion@birou.md", UserRole.CONTABIL)
+    ion = await make_user(ctx.session, "ion", UserRole.CONTABIL)
     tva = await ctx.entry("TVA12")
     with pytest.raises(NotFoundError):
         await ctx.as_(ion).get_entry(tva.id)

@@ -6,7 +6,7 @@ import type { AccessToken, Me } from "../api/types";
 export interface AuthState {
   /** undefined: încă verificăm sesiunea; null: neautentificat. */
   user: Me | null | undefined;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
 }
@@ -31,8 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadMe]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const token = await api.post<AccessToken>("/api/auth/login", { email, password });
+    async (username: string, password: string) => {
+      const token = await api.post<AccessToken>("/api/auth/login", { username, password });
       setAccessToken(token.access_token);
       await loadMe();
     },

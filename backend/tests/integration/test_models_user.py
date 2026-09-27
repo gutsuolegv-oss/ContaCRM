@@ -17,12 +17,18 @@ async def org(session: AsyncSession) -> Organization:
     return org
 
 
-def _user(org: Organization, email: str, role: UserRole = UserRole.CONTABIL) -> User:
-    return User(organization_id=org.id, email=email, full_name="Test", password_hash="x", role=role)  # noqa: S106
+def _user(org: Organization, username: str, role: UserRole = UserRole.CONTABIL) -> User:
+    return User(
+        organization_id=org.id,
+        username=username,
+        full_name="Test",
+        password_hash="x",  # noqa: S106
+        role=role,
+    )
 
 
 async def test_user_defaults(session: AsyncSession, org: Organization) -> None:
-    user = _user(org, "a@birou.md")
+    user = _user(org, "a")
     session.add(user)
     await session.flush()
     await session.refresh(user)
@@ -31,22 +37,24 @@ async def test_user_defaults(session: AsyncSession, org: Organization) -> None:
     assert user.created_at is not None
 
 
-async def test_email_unique_case_insensitive(session: AsyncSession, org: Organization) -> None:
-    session.add(_user(org, "ana@birou.md"))
+async def test_username_unique_case_insensitive(session: AsyncSession, org: Organization) -> None:
+    session.add(_user(org, "ana"))
     await session.flush()
-    session.add(_user(org, "ANA@birou.md"))
+    session.add(_user(org, "ANA"))
     with pytest.raises(IntegrityError):
         await session.flush()
 
 
-async def test_email_reusable_after_soft_delete(session: AsyncSession, org: Organization) -> None:
-    old = _user(org, "ion@birou.md")
+async def test_username_reusable_after_soft_delete(
+    session: AsyncSession, org: Organization
+) -> None:
+    old = _user(org, "ion")
     session.add(old)
     await session.flush()
     old.status = RecordStatus.ARCHIVED
     old.deleted_at = datetime.now(UTC)
     await session.flush()
-    session.add(_user(org, "ion@birou.md"))
+    session.add(_user(org, "ion"))
     await session.flush()
 
 
@@ -54,8 +62,8 @@ async def test_role_check_constraint(session: AsyncSession, org: Organization) -
     with pytest.raises(IntegrityError):
         await session.execute(
             text(
-                "INSERT INTO users (organization_id, email, full_name, password_hash, role) "
-                "VALUES (:org, 'x@birou.md', 'X', 'x', 'superuser')"
+                "INSERT INTO users (organization_id, username, full_name, password_hash, role) "
+                "VALUES (:org, 'x', 'X', 'x', 'superuser')"
             ),
             {"org": org.id},
         )

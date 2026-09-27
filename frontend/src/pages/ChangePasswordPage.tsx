@@ -63,7 +63,7 @@ export function ChangePasswordPage() {
             </p>
           </div>
           {error && <div className="error">{error}</div>}
-          <input type="email" value={me.email} autoComplete="username" hidden readOnly />
+          <input type="text" value={me.username} autoComplete="username" hidden readOnly />
           <div className="field">
             <label htmlFor="current">Parola actuală</label>
             <PasswordInput

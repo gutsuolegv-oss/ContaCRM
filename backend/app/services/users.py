@@ -33,7 +33,7 @@ from app.services.errors import (
     conflict_guard,
 )
 
-_EMAIL_CONFLICT = "Există deja un utilizator activ cu acest email"
+_USERNAME_CONFLICT = "Există deja un utilizator activ cu acest nume"
 
 
 class UserService:
@@ -78,13 +78,13 @@ class UserService:
         self._require_admin()
         user = User(
             organization_id=await self._organization_id(),
-            email=data.email,
+            username=data.username,
             full_name=data.full_name,
             role=data.role,
             password_hash=security.hash_password(data.password),
             must_change_password=True,
         )
-        async with conflict_guard(self.session, _EMAIL_CONFLICT):
+        async with conflict_guard(self.session, _USERNAME_CONFLICT):
             self.users.add(user)
         self.audit.created(user)
         await self.session.commit()
@@ -104,7 +104,7 @@ class UserService:
         if new_role is not None and new_role is not UserRole.ADMIN:
             await self._ensure_not_last_admin(user)
         before = snapshot(user)
-        async with conflict_guard(self.session, _EMAIL_CONFLICT):
+        async with conflict_guard(self.session, _USERNAME_CONFLICT):
             apply_changes(user, values)
         self.audit.changed(user, before)
         await self.session.commit()

@@ -1543,8 +1543,8 @@ export interface components {
         LegalForm: "SRL" | "SA" | "II" | "GT" | "ONG";
         /** LoginIn */
         LoginIn: {
-            /** Email */
-            email: string;
+            /** Username */
+            username: string;
             /** Password */
             password: string;
         };
@@ -1552,8 +1552,8 @@ export interface components {
         MeOut: {
             /** Id */
             id: number;
-            /** Email */
-            email: string;
+            /** Username */
+            username: string;
             /** Full Name */
             full_name: string;
             role: components["schemas"]["UserRole"];
@@ -2165,14 +2165,14 @@ export interface components {
             id: number;
             /** Full Name */
             full_name: string;
-            /** Email */
-            email: string;
+            /** Username */
+            username: string;
             role: components["schemas"]["UserRole"];
         };
         /** UserCreate */
         UserCreate: {
-            /** Email */
-            email: string;
+            /** Username */
+            username: string;
             /** Full Name */
             full_name: string;
             role: components["schemas"]["UserRole"];
@@ -2183,8 +2183,8 @@ export interface components {
         UserOut: {
             /** Id */
             id: number;
-            /** Email */
-            email: string;
+            /** Username */
+            username: string;
             /** Full Name */
             full_name: string;
             role: components["schemas"]["UserRole"];
@@ -2206,8 +2206,8 @@ export interface components {
         UserRole: "admin" | "director" | "contabil";
         /** UserUpdate */
         UserUpdate: {
-            /** Email */
-            email?: string | null;
+            /** Username */
+            username?: string | null;
             /** Full Name */
             full_name?: string | null;
             role?: components["schemas"]["UserRole"] | null;

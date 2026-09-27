@@ -25,7 +25,7 @@ DAY2 = date(2026, 10, 1)
 
 @pytest.fixture
 async def admin(session: AsyncSession) -> User:
-    return await make_user(session, "admin@birou.md", UserRole.ADMIN)
+    return await make_user(session, "admin", UserRole.ADMIN)
 
 
 @pytest.fixture
@@ -179,9 +179,9 @@ async def test_assign_manual_errors(
 
 
 async def test_client_visibility(session: AsyncSession, client: Client, admin: User) -> None:
-    director = await make_user(session, "director@birou.md", UserRole.DIRECTOR)
-    ana = await make_user(session, "ana@birou.md", UserRole.CONTABIL)
-    ion = await make_user(session, "ion@birou.md", UserRole.CONTABIL)
+    director = await make_user(session, "director", UserRole.DIRECTOR)
+    ana = await make_user(session, "ana", UserRole.CONTABIL)
+    ion = await make_user(session, "ion", UserRole.CONTABIL)
     await assign(session, client, ana)
 
     for user in (admin, director, ana):

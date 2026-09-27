@@ -75,7 +75,7 @@ class ClientUpdate(InputModel):
 class UserBrief(ORMModel):
     id: int
     full_name: str
-    email: str
+    username: str
     role: UserRole
 
 

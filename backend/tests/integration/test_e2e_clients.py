@@ -15,8 +15,8 @@ from tests.integration.factories import make_user
 PASSWORD = "parola-e2e-123456"  # noqa: S105
 
 
-async def login(api: AsyncClient, email: str) -> dict[str, str]:
-    resp = await api.post("/api/auth/login", json={"email": email, "password": PASSWORD})
+async def login(api: AsyncClient, username: str) -> dict[str, str]:
+    resp = await api.post("/api/auth/login", json={"username": username, "password": PASSWORD})
     assert resp.status_code == 200, resp.text
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
@@ -28,9 +28,9 @@ def codes(items: list[dict[str, Any]]) -> list[str]:
 async def test_new_client_to_first_month(api: AsyncClient, session: AsyncSession) -> None:
     await seed_classifier(session)
     pw = hash_password(PASSWORD)
-    await make_user(session, "director@birou.md", UserRole.DIRECTOR, password_hash=pw)
-    ana = await make_user(session, "ana@birou.md", UserRole.CONTABIL, password_hash=pw)
-    director, ana_h = await login(api, "director@birou.md"), await login(api, "ana@birou.md")
+    await make_user(session, "director", UserRole.DIRECTOR, password_hash=pw)
+    ana = await make_user(session, "ana", UserRole.CONTABIL, password_hash=pw)
+    director, ana_h = await login(api, "director"), await login(api, "ana")
 
     # 1. Ana introduce clientul: i se repartizează ei, obligațiile se calculează de azi
     created = await api.post(

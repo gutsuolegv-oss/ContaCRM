@@ -129,7 +129,7 @@ export function UsersPage() {
                               </span>
                             )}
                           </div>
-                          <div className="sub">{u.email}</div>
+                          <div className="sub">{u.username}</div>
                         </div>
                       </div>
                     </td>
@@ -195,14 +195,15 @@ function NewUserForm({
   onCreated: (user: UserOut) => void;
   onClose: () => void;
 }) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<UserRole>("contabil");
   const [password, setPassword] = useState("");
   const create = useMutation({
-    mutationFn: () => api.post<UserOut>("/api/users", { email, full_name: name, role, password }),
+    mutationFn: () =>
+      api.post<UserOut>("/api/users", { username, full_name: name, role, password }),
     onSuccess: (user) => {
-      setEmail("");
+      setUsername("");
       setName("");
       setPassword("");
       onCreated(user);
@@ -240,13 +241,15 @@ function NewUserForm({
             />
           </div>
           <div className="field">
-            <label>Email</label>
+            <label>Utilizator</label>
             <input
-              className="input"
-              type="email"
-              placeholder="email@birou.md"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              className="input mono"
+              placeholder="ex. ana.rusu"
+              autoCapitalize="none"
+              pattern="[A-Za-z0-9][A-Za-z0-9._\-]{1,49}"
+              title="2-50 caractere: litere latine, cifre, punct, _ sau -"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
