@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, MetaData, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Identity, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 # Nume stabile pentru constrângeri și indecși, ca migrările autogenerate să fie previzibile.
@@ -20,10 +20,29 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
+def str_enum(enum_cls: type[enum.StrEnum], name: str) -> Enum:
+    """Enum salvat ca text (valorile, nu numele membrilor), cu constrângere CHECK în bază."""
+    return Enum(
+        enum_cls,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        length=16,
+        values_callable=lambda e: [m.value for m in e],
+    )
+
+
+class IdMixin:
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True, sort_order=-100)
+
+
+# Câmpurile din mixin-uri apar în tabel după cele ale modelului (sort_order).
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), sort_order=100
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), sort_order=100
     )
 
 
@@ -36,19 +55,15 @@ class SoftDeleteMixin:
     """Ștergere logică: rândul rămâne în bază, marcat `archived`, cu cine și când l-a arhivat."""
 
     status: Mapped[RecordStatus] = mapped_column(
-        Enum(
-            RecordStatus,
-            name="status",
-            native_enum=False,
-            create_constraint=True,
-            length=16,
-            values_callable=lambda e: [m.value for m in e],
-        ),
+        str_enum(RecordStatus, "status"),
         default=RecordStatus.ACTIVE,
         server_default=RecordStatus.ACTIVE.value,
+        sort_order=100,
     )
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), sort_order=100)
 
     @declared_attr
     def deleted_by(cls) -> Mapped[int | None]:
-        return mapped_column(BigInteger, ForeignKey("users.id", ondelete="RESTRICT"))
+        return mapped_column(
+            BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), sort_order=100
+        )
